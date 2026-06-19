@@ -113,6 +113,7 @@ def get_confusion_matrix(
     x_max: float = Query(...),
     y_max: float = Query(...),
     lp: Optional[List[str]] = Query(default=None),
+    level: Optional[int] = Query(default=None),
 ) -> ConfusionMatrixResponse:
     try:
         client = get_head_client()
@@ -130,14 +131,18 @@ def get_confusion_matrix(
                 for lc2 in label_classes
             ]
 
-        coarsest_level = osm_zoom_offset
+        if level is None:
+            level = osm_zoom_offset
+        else:
+            level = max(osm_zoom_offset, min(max_level, level))
+
         i_min, j_min, i_max, j_max = _world_to_grid_bbox(
-            x_min, y_min, x_max, y_max, coarsest_level, max_level, world_size
+            x_min, y_min, x_max, y_max, level, max_level, world_size
         )
 
         print(
             f"confusion_matrix bbox: world=({x_min},{y_min},{x_max},{y_max})"
-            f" → grid=({i_min},{j_min},{i_max},{j_max})"
+            f" → grid=({i_min},{j_min},{i_max},{j_max}) level={level}"
         )
 
         if i_max < i_min or j_max < j_min:
@@ -146,7 +151,7 @@ def get_confusion_matrix(
         bbox = (i_min, j_min, i_max, j_max)
 
         with client.get_session() as session:
-            store = ConfusionMatrixStore(project_id, coarsest_level, session)
+            store = ConfusionMatrixStore(project_id, level, session)
             confusion, gt_labels, pred_labels = store.read_confusion_matrix(
                 bbox=bbox, label_pairs=label_pairs
             )

@@ -150,7 +150,7 @@ export default function LabelingPage() {
     })
 
     const { data: galleryTotal = null } = useQuery<number | null>({
-        queryKey: ['galleryTotal', projectId, lassoPolygon],
+        queryKey: ['galleryTotal', projectId, lassoPolygon, worldInfo],
         queryFn: async () => {
             const bbox = computeBboxFromPolygon(lassoPolygon!)
             const { data, error } = await getConfusionMatrixApiV1ProjectsProjectIdConfusionMatrixGet({
@@ -160,6 +160,8 @@ export default function LabelingPage() {
                     y_min: bbox.y_min,
                     x_max: bbox.x_max,
                     y_max: bbox.y_max,
+                    lp,
+                    level: worldInfo?.max_level,
                 },
             })
             if (error) throw error
@@ -167,7 +169,7 @@ export default function LabelingPage() {
                 ? (data.matrix as number[][]).flat().reduce((s, v) => s + v, 0)
                 : null
         },
-        enabled: lassoPolygon !== null,
+        enabled: lassoPolygon !== null && worldInfo !== null,
         staleTime: Infinity,
     })
 

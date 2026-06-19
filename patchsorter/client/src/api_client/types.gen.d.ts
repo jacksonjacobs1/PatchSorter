@@ -325,6 +325,10 @@ export type GetConfusionMatrixProjectsProjectIdConfusionMatrixGetData = {
          * Lp
          */
         lp?: Array<string> | null;
+        /**
+         * Level
+         */
+        level?: number | null;
     };
     url: '/projects/{project_id}/confusion_matrix';
 };
