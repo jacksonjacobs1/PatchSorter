@@ -39,6 +39,18 @@ export const getConfusionMatrixProjectsProjectIdConfusionMatrixGet = <ThrowOnErr
 export const listProjectsProjectsGet = <ThrowOnError extends boolean = false>(options?: Options<ListProjectsProjectsGetData, ThrowOnError>) => (options?.client ?? client).get<ListProjectsProjectsGetResponses, unknown, ThrowOnError>({ url: '/projects/', ...options });
 
 /**
+ * Create Project
+ */
+export const createProjectProjectsPost = <ThrowOnError extends boolean = false>(options: Options<CreateProjectProjectsPostData, ThrowOnError>) => (options.client ?? client).post<CreateProjectProjectsPostResponses, CreateProjectProjectsPostErrors, ThrowOnError>({
+    url: '/projects/',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Get Project
  */
 export const getProjectProjectsProjectIdGet = <ThrowOnError extends boolean = false>(options: Options<GetProjectProjectsProjectIdGetData, ThrowOnError>) => (options.client ?? client).get<GetProjectProjectsProjectIdGetResponses, GetProjectProjectsProjectIdGetErrors, ThrowOnError>({ url: '/projects/{project_id}', ...options });
@@ -46,7 +58,14 @@ export const getProjectProjectsProjectIdGet = <ThrowOnError extends boolean = fa
 /**
  * Update Project
  */
-export const updateProjectProjectsProjectIdPut = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectProjectsProjectIdPutData, ThrowOnError>) => (options.client ?? client).put<UpdateProjectProjectsProjectIdPutResponses, UpdateProjectProjectsProjectIdPutErrors, ThrowOnError>({ url: '/projects/{project_id}', ...options });
+export const updateProjectProjectsProjectIdPut = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectProjectsProjectIdPutData, ThrowOnError>) => (options.client ?? client).put<UpdateProjectProjectsProjectIdPutResponses, UpdateProjectProjectsProjectIdPutErrors, ThrowOnError>({
+    url: '/projects/{project_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get Project Stats

@@ -492,6 +492,20 @@ export type SettingResponse = {
 export type SumOver = 'gt' | 'pred';
 
 /**
+ * UpdateProjectRequest
+ */
+export type UpdateProjectRequest = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+};
+
+/**
  * UploadFilesResponse
  */
 export type UploadFilesResponse = {
@@ -732,6 +746,31 @@ export type ListProjectsProjectsGetResponses = {
 
 export type ListProjectsProjectsGetResponse = ListProjectsProjectsGetResponses[keyof ListProjectsProjectsGetResponses];
 
+export type CreateProjectProjectsPostData = {
+    body: CreateProjectRequest;
+    path?: never;
+    query?: never;
+    url: '/projects/';
+};
+
+export type CreateProjectProjectsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateProjectProjectsPostError = CreateProjectProjectsPostErrors[keyof CreateProjectProjectsPostErrors];
+
+export type CreateProjectProjectsPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProjectResponse;
+};
+
+export type CreateProjectProjectsPostResponse = CreateProjectProjectsPostResponses[keyof CreateProjectProjectsPostResponses];
+
 export type GetProjectProjectsProjectIdGetData = {
     body?: never;
     path: {
@@ -763,23 +802,14 @@ export type GetProjectProjectsProjectIdGetResponses = {
 export type GetProjectProjectsProjectIdGetResponse = GetProjectProjectsProjectIdGetResponses[keyof GetProjectProjectsProjectIdGetResponses];
 
 export type UpdateProjectProjectsProjectIdPutData = {
-    body?: never;
+    body: UpdateProjectRequest;
     path: {
         /**
          * Project Id
          */
         project_id: number;
     };
-    query?: {
-        /**
-         * Name
-         */
-        name?: string | null;
-        /**
-         * Description
-         */
-        description?: string | null;
-    };
+    query?: never;
     url: '/projects/{project_id}';
 };
 
