@@ -73,6 +73,20 @@ export type ConfusionMatrixResponse = {
 };
 
 /**
+ * CreateProjectRequest
+ */
+export type CreateProjectRequest = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+};
+
+/**
  * ExportRequest
  *
  * Request body for starting a patch CSV export.
