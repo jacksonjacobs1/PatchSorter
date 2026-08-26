@@ -54,3 +54,15 @@ class LargeImageMetadataKeys(StrEnum):
     IMAGE_HEIGHT = "sizeY"
     TILE_WIDTH = "tileWidth"
     BASE_MAGNIFICATION = "magnification"
+    
+ANNOTATION_CLASS_COLOR_PALETTES: dict[str, list[str]] = {
+    'default': [
+        "#d5ff00", "#00ff00", "#ff937e", "#91d0cb",
+        "#0000ff", "#00ae7e", "#ff00f6", "#5fad4e",
+        "#01d0ff", "#bb8800", "#bdc6ff", "#008f9c",
+        "#a5ffd2", "#ffa6fe", "#ffdb66", "#00ffc6",
+        "#00b917", "#bdd393", "#004754", "#010067",
+        "#0e4ca1", "#005f39", "#6b6882", "#683d3b",
+        "#43002c", "#788231",
+    ]
+}
