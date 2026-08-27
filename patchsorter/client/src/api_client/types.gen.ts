@@ -287,7 +287,7 @@ export type PatchResponse = {
     /**
      * Patch Uid
      */
-    patch_uid: string;
+    patch_uid?: string | null;
     /**
      * Label Class Id
      */
