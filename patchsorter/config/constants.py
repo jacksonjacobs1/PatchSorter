@@ -27,6 +27,12 @@ class PatchExtractionMethod(StrEnum):
     FIT_ALL_OBJECTS = "fit all objects"
 
 
+class FileCategory(StrEnum):
+    IMAGE = "image"
+    MASK = "mask"
+    PATCH_CSV = "patch CSV"
+
+
 IMAGE_EXTS = {".tif", ".tiff", ".png", ".jpg", ".jpeg", ".svs", ".ndpi", ".vms", ".vmu", ".scn", ".mrxs"}
 MASK_EXTS = {".geojson"}
 PATCH_CSV_EXTS = {".csv"}
@@ -34,6 +40,7 @@ PATCH_CSV_EXTS = {".csv"}
 PATCH_BATCH_SIZE = 1000
 
 UNASSIGNED_CLASS_ID = 1
+
 
 class PatchCSVColumns(StrEnum):
     PATCH_ID = "patch_id"
@@ -55,6 +62,10 @@ class LargeImageMetadataKeys(StrEnum):
     TILE_WIDTH = "tileWidth"
     BASE_MAGNIFICATION = "magnification"
     
+
+GC_TTL_SECONDS = 3600
+GC_INTERVAL_SECONDS = 300
+
 ANNOTATION_CLASS_COLOR_PALETTES: dict[str, list[str]] = {
     'default': [
         "#d5ff00", "#00ff00", "#ff937e", "#91d0cb",
