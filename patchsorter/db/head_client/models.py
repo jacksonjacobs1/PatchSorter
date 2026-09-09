@@ -96,30 +96,25 @@ class LabelClass(Base):
     project = relationship("Project", back_populates="label_classes")
 
 
-class Setting(Base):
-    __tablename__ = "settings"
+class SettingOverride(Base):
+    __tablename__ = "setting_overrides"
     __table_args__ = (
-        UniqueConstraint("project_id", "setting_key", name="uq_project_setting"),
-        CheckConstraint(
-            f"setting_type IN ({', '.join(repr(t.value) for t in SettingType)})",
-            name="ck_setting_type",
-        ),
-        CheckConstraint(
-            f"setting_type != '{SettingType.ENUM}' OR allowed_values IS NOT NULL",
-            name="chk_enum_has_values",
+        UniqueConstraint("project_id", "setting_key", name="uq_project_setting_override"),
+        Index(
+            "uq_app_setting_override",
+            "setting_key",
+            unique=True,
+            postgresql_where=Column("project_id").is_(None),
         ),
     )
 
-    setting_id     = Column(Integer, primary_key=True, autoincrement=True)
-    project_id     = Column(Integer, ForeignKey("project.project_id", name="fk_project"))
-    setting_key    = Column(Text, nullable=False)
-    setting_value  = Column(Text, nullable=False)
-    default_value  = Column(Text, nullable=False)
-    setting_type   = Column(Text, nullable=False)
-    allowed_values = Column(Text)
-    disabled       = Column(Boolean, nullable=False, server_default="false")
+    override_id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id  = Column(Integer, ForeignKey("project.project_id", name="fk_project"), nullable=True)
+    setting_key = Column(Text, nullable=False)
+    value       = Column(Text, nullable=False)
+    updated_at  = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now()) # TODO: Get rid of custom TIMESTAMP type
 
-    project = relationship("Project", back_populates="settings")
+    project = relationship("Project", back_populates="setting_overrides")
 
 
 class Log(Base):
