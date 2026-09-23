@@ -73,6 +73,52 @@ export type ConfusionMatrixResponse = {
 };
 
 /**
+ * CreateProjectRequest
+ */
+export type CreateProjectRequest = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+};
+
+/**
+ * ExportRequest
+ *
+ * Request body for starting a patch CSV export.
+ */
+export type ExportRequest = {
+    /**
+     * Image Ids
+     */
+    image_ids: Array<number>;
+    /**
+     * Label Class Ids
+     */
+    label_class_ids?: Array<number>;
+};
+
+/**
+ * ExportResponse
+ *
+ * Response from export_patch_csv endpoint.
+ */
+export type ExportResponse = {
+    /**
+     * Task Id
+     */
+    task_id: string;
+    /**
+     * Manifest Urls
+     */
+    manifest_urls: Array<string>;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -157,6 +203,30 @@ export type LabelAssignResponse = {
 };
 
 /**
+ * LabelClassCreate
+ */
+export type LabelClassCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Color Code
+     */
+    color_code?: string | null;
+};
+
+/**
+ * LabelClassDefaultResponse
+ */
+export type LabelClassDefaultResponse = {
+    /**
+     * Color Code
+     */
+    color_code: string;
+};
+
+/**
  * LabelClassResponse
  */
 export type LabelClassResponse = {
@@ -183,6 +253,20 @@ export type LabelClassResponse = {
 };
 
 /**
+ * LabelClassUpdate
+ */
+export type LabelClassUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Color Code
+     */
+    color_code?: string | null;
+};
+
+/**
  * OpenSessionResponse
  */
 export type OpenSessionResponse = {
@@ -203,7 +287,7 @@ export type PatchResponse = {
     /**
      * Patch Uid
      */
-    patch_uid: string;
+    patch_uid?: string | null;
     /**
      * Label Class Id
      */
@@ -387,6 +471,49 @@ export type ProjectStatsResponse = {
 };
 
 /**
+ * ResolvedSetting
+ *
+ * A `SettingDef` plus the setting's current effective value and scope.
+ *
+ * Returned by the raw-value accessors (`get_raw`, `get_all_raw`,
+ * `_resolve_raw`) so callers get both the schema metadata (type, scope,
+ * default, allowed_values, disabled) and the resolved value in one object,
+ * without a second lookup against the schema.
+ */
+export type ResolvedSetting = {
+    /**
+     * Key
+     */
+    key: string;
+    scope: SettingScope;
+    type: SettingType;
+    /**
+     * Default
+     */
+    default: string;
+    /**
+     * Allowed Values
+     */
+    allowed_values?: Array<string> | null;
+    /**
+     * Disabled
+     */
+    disabled?: boolean;
+    /**
+     * Description
+     */
+    description?: string;
+    /**
+     * Value
+     */
+    value: string;
+    /**
+     * Project Id
+     */
+    project_id?: number | null;
+};
+
+/**
  * ReviewRow
  */
 export type ReviewRow = {
@@ -417,47 +544,43 @@ export type ReviewRow = {
 };
 
 /**
- * SettingResponse
+ * SettingScope
  */
-export type SettingResponse = {
-    /**
-     * Setting Id
-     */
-    setting_id: number;
-    /**
-     * Project Id
-     */
-    project_id: number | null;
-    /**
-     * Setting Key
-     */
-    setting_key: string;
-    /**
-     * Setting Value
-     */
-    setting_value: string;
-    /**
-     * Default Value
-     */
-    default_value: string;
-    /**
-     * Setting Type
-     */
-    setting_type: string;
-    /**
-     * Allowed Values
-     */
-    allowed_values: string | null;
-    /**
-     * Disabled
-     */
-    disabled: boolean;
-};
+export type SettingScope = 'application' | 'project';
+
+/**
+ * SettingType
+ */
+export type SettingType = 'enum' | 'string' | 'boolean' | 'integer';
 
 /**
  * SumOver
  */
 export type SumOver = 'gt' | 'pred';
+
+/**
+ * UpdateProjectRequest
+ */
+export type UpdateProjectRequest = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+};
+
+/**
+ * UpdateSettingRequest
+ */
+export type UpdateSettingRequest = {
+    /**
+     * Value
+     */
+    value: string;
+};
 
 /**
  * UploadFilesResponse
@@ -700,6 +823,61 @@ export type ListProjectsProjectsGetResponses = {
 
 export type ListProjectsProjectsGetResponse = ListProjectsProjectsGetResponses[keyof ListProjectsProjectsGetResponses];
 
+export type CreateProjectProjectsPostData = {
+    body: CreateProjectRequest;
+    path?: never;
+    query?: never;
+    url: '/projects/';
+};
+
+export type CreateProjectProjectsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateProjectProjectsPostError = CreateProjectProjectsPostErrors[keyof CreateProjectProjectsPostErrors];
+
+export type CreateProjectProjectsPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProjectResponse;
+};
+
+export type CreateProjectProjectsPostResponse = CreateProjectProjectsPostResponses[keyof CreateProjectProjectsPostResponses];
+
+export type DeleteProjectProjectsProjectIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/projects/{project_id}';
+};
+
+export type DeleteProjectProjectsProjectIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteProjectProjectsProjectIdDeleteError = DeleteProjectProjectsProjectIdDeleteErrors[keyof DeleteProjectProjectsProjectIdDeleteErrors];
+
+export type DeleteProjectProjectsProjectIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteProjectProjectsProjectIdDeleteResponse = DeleteProjectProjectsProjectIdDeleteResponses[keyof DeleteProjectProjectsProjectIdDeleteResponses];
+
 export type GetProjectProjectsProjectIdGetData = {
     body?: never;
     path: {
@@ -731,23 +909,14 @@ export type GetProjectProjectsProjectIdGetResponses = {
 export type GetProjectProjectsProjectIdGetResponse = GetProjectProjectsProjectIdGetResponses[keyof GetProjectProjectsProjectIdGetResponses];
 
 export type UpdateProjectProjectsProjectIdPutData = {
-    body?: never;
+    body: UpdateProjectRequest;
     path: {
         /**
          * Project Id
          */
         project_id: number;
     };
-    query?: {
-        /**
-         * Name
-         */
-        name?: string | null;
-        /**
-         * Description
-         */
-        description?: string | null;
-    };
+    query?: never;
     url: '/projects/{project_id}';
 };
 
@@ -831,6 +1000,66 @@ export type ListLabelClassesProjectsProjectIdLabelClassesGetResponses = {
 
 export type ListLabelClassesProjectsProjectIdLabelClassesGetResponse = ListLabelClassesProjectsProjectIdLabelClassesGetResponses[keyof ListLabelClassesProjectsProjectIdLabelClassesGetResponses];
 
+export type CreateLabelClassProjectsProjectIdLabelClassesPostData = {
+    body: LabelClassCreate;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/projects/{project_id}/label_classes/';
+};
+
+export type CreateLabelClassProjectsProjectIdLabelClassesPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateLabelClassProjectsProjectIdLabelClassesPostError = CreateLabelClassProjectsProjectIdLabelClassesPostErrors[keyof CreateLabelClassProjectsProjectIdLabelClassesPostErrors];
+
+export type CreateLabelClassProjectsProjectIdLabelClassesPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: LabelClassResponse;
+};
+
+export type CreateLabelClassProjectsProjectIdLabelClassesPostResponse = CreateLabelClassProjectsProjectIdLabelClassesPostResponses[keyof CreateLabelClassProjectsProjectIdLabelClassesPostResponses];
+
+export type GetDefaultLabelClassProjectsProjectIdLabelClassesDefaultGetData = {
+    body?: never;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/projects/{project_id}/label_classes/default';
+};
+
+export type GetDefaultLabelClassProjectsProjectIdLabelClassesDefaultGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetDefaultLabelClassProjectsProjectIdLabelClassesDefaultGetError = GetDefaultLabelClassProjectsProjectIdLabelClassesDefaultGetErrors[keyof GetDefaultLabelClassProjectsProjectIdLabelClassesDefaultGetErrors];
+
+export type GetDefaultLabelClassProjectsProjectIdLabelClassesDefaultGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: LabelClassDefaultResponse;
+};
+
+export type GetDefaultLabelClassProjectsProjectIdLabelClassesDefaultGetResponse = GetDefaultLabelClassProjectsProjectIdLabelClassesDefaultGetResponses[keyof GetDefaultLabelClassProjectsProjectIdLabelClassesDefaultGetResponses];
+
 export type GetLabelClassProjectsProjectIdLabelClassesLabelClassIdGetData = {
     body?: never;
     path: {
@@ -864,6 +1093,40 @@ export type GetLabelClassProjectsProjectIdLabelClassesLabelClassIdGetResponses =
 };
 
 export type GetLabelClassProjectsProjectIdLabelClassesLabelClassIdGetResponse = GetLabelClassProjectsProjectIdLabelClassesLabelClassIdGetResponses[keyof GetLabelClassProjectsProjectIdLabelClassesLabelClassIdGetResponses];
+
+export type UpdateLabelClassProjectsProjectIdLabelClassesLabelClassIdPutData = {
+    body: LabelClassUpdate;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: number;
+        /**
+         * Label Class Id
+         */
+        label_class_id: number;
+    };
+    query?: never;
+    url: '/projects/{project_id}/label_classes/{label_class_id}';
+};
+
+export type UpdateLabelClassProjectsProjectIdLabelClassesLabelClassIdPutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateLabelClassProjectsProjectIdLabelClassesLabelClassIdPutError = UpdateLabelClassProjectsProjectIdLabelClassesLabelClassIdPutErrors[keyof UpdateLabelClassProjectsProjectIdLabelClassesLabelClassIdPutErrors];
+
+export type UpdateLabelClassProjectsProjectIdLabelClassesLabelClassIdPutResponses = {
+    /**
+     * Successful Response
+     */
+    200: LabelClassResponse;
+};
+
+export type UpdateLabelClassProjectsProjectIdLabelClassesLabelClassIdPutResponse = UpdateLabelClassProjectsProjectIdLabelClassesLabelClassIdPutResponses[keyof UpdateLabelClassProjectsProjectIdLabelClassesLabelClassIdPutResponses];
 
 export type ListPatchesProjectsProjectIdPatchesGetData = {
     body?: never;
@@ -1082,155 +1345,76 @@ export type AssignLabelsByPolygonProjectsProjectIdPatchesPolygonassignPostRespon
 
 export type AssignLabelsByPolygonProjectsProjectIdPatchesPolygonassignPostResponse = AssignLabelsByPolygonProjectsProjectIdPatchesPolygonassignPostResponses[keyof AssignLabelsByPolygonProjectsProjectIdPatchesPolygonassignPostResponses];
 
-export type SamplePatchesByBboxProjectsProjectIdSampleByBboxPatchesGetData = {
+export type ListSettingsSettingsGetData = {
     body?: never;
-    path: {
+    path?: never;
+    query?: {
         /**
          * Project Id
          */
-        project_id: number;
+        project_id?: number | null;
+        /**
+         * Scope
+         */
+        scope?: string | null;
     };
-    query: {
-        /**
-         * Xmin
-         */
-        xmin: number;
-        /**
-         * Xmax
-         */
-        xmax: number;
-        /**
-         * Ymin
-         */
-        ymin: number;
-        /**
-         * Ymax
-         */
-        ymax: number;
-        /**
-         * Num Samples
-         */
-        num_samples?: number;
-        /**
-         * Lp
-         *
-         * Label pair filter: repeat for each pair as 'gt,pred' (e.g. lp=0,1&lp=2,2)
-         */
-        lp?: Array<string> | null;
-        /**
-         * Patch Query Range
-         *
-         * Range in grid cells around each query point for patch sampling
-         */
-        patch_query_range?: number;
-    };
-    url: '/projects/{project_id}/sample/by-bbox/patches/';
+    url: '/settings/';
 };
 
-export type SamplePatchesByBboxProjectsProjectIdSampleByBboxPatchesGetErrors = {
+export type ListSettingsSettingsGetErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type SamplePatchesByBboxProjectsProjectIdSampleByBboxPatchesGetError = SamplePatchesByBboxProjectsProjectIdSampleByBboxPatchesGetErrors[keyof SamplePatchesByBboxProjectsProjectIdSampleByBboxPatchesGetErrors];
+export type ListSettingsSettingsGetError = ListSettingsSettingsGetErrors[keyof ListSettingsSettingsGetErrors];
 
-export type SamplePatchesByBboxProjectsProjectIdSampleByBboxPatchesGetResponses = {
+export type ListSettingsSettingsGetResponses = {
     /**
-     * Response Sample Patches By Bbox Projects  Project Id  Sample By Bbox Patches  Get
+     * Response List Settings Settings  Get
      *
      * Successful Response
      */
-    200: Array<PatchResponse>;
+    200: Array<ResolvedSetting>;
 };
 
-export type SamplePatchesByBboxProjectsProjectIdSampleByBboxPatchesGetResponse = SamplePatchesByBboxProjectsProjectIdSampleByBboxPatchesGetResponses[keyof SamplePatchesByBboxProjectsProjectIdSampleByBboxPatchesGetResponses];
+export type ListSettingsSettingsGetResponse = ListSettingsSettingsGetResponses[keyof ListSettingsSettingsGetResponses];
 
-export type SamplePatchesByPointProjectsProjectIdSampleByPointPatchesGetData = {
-    body?: never;
+export type UpdateSettingSettingsSettingKeyPatchData = {
+    body: UpdateSettingRequest;
     path: {
+        /**
+         * Setting Key
+         */
+        setting_key: string;
+    };
+    query?: {
         /**
          * Project Id
          */
-        project_id: number;
+        project_id?: number | null;
     };
-    query: {
-        /**
-         * X
-         */
-        x: number;
-        /**
-         * Y
-         */
-        y: number;
-        /**
-         * Lp
-         *
-         * Label pair filter: repeat for each pair as 'gt,pred' (e.g. lp=0,1&lp=2,2)
-         */
-        lp?: Array<string> | null;
-        /**
-         * Patch Query Range
-         *
-         * Range in grid cells around the query point for patch sampling
-         */
-        patch_query_range?: number;
-    };
-    url: '/projects/{project_id}/sample/by-point/patches/';
+    url: '/settings/{setting_key}';
 };
 
-export type SamplePatchesByPointProjectsProjectIdSampleByPointPatchesGetErrors = {
+export type UpdateSettingSettingsSettingKeyPatchErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type SamplePatchesByPointProjectsProjectIdSampleByPointPatchesGetError = SamplePatchesByPointProjectsProjectIdSampleByPointPatchesGetErrors[keyof SamplePatchesByPointProjectsProjectIdSampleByPointPatchesGetErrors];
+export type UpdateSettingSettingsSettingKeyPatchError = UpdateSettingSettingsSettingKeyPatchErrors[keyof UpdateSettingSettingsSettingKeyPatchErrors];
 
-export type SamplePatchesByPointProjectsProjectIdSampleByPointPatchesGetResponses = {
+export type UpdateSettingSettingsSettingKeyPatchResponses = {
     /**
-     * Response Sample Patches By Point Projects  Project Id  Sample By Point Patches  Get
-     *
      * Successful Response
      */
-    200: Array<PatchResponse>;
+    200: ResolvedSetting;
 };
 
-export type SamplePatchesByPointProjectsProjectIdSampleByPointPatchesGetResponse = SamplePatchesByPointProjectsProjectIdSampleByPointPatchesGetResponses[keyof SamplePatchesByPointProjectsProjectIdSampleByPointPatchesGetResponses];
-
-export type ListSettingsProjectsProjectIdSettingsGetData = {
-    body?: never;
-    path: {
-        /**
-         * Project Id
-         */
-        project_id: number;
-    };
-    query?: never;
-    url: '/projects/{project_id}/settings/';
-};
-
-export type ListSettingsProjectsProjectIdSettingsGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type ListSettingsProjectsProjectIdSettingsGetError = ListSettingsProjectsProjectIdSettingsGetErrors[keyof ListSettingsProjectsProjectIdSettingsGetErrors];
-
-export type ListSettingsProjectsProjectIdSettingsGetResponses = {
-    /**
-     * Response List Settings Projects  Project Id  Settings  Get
-     *
-     * Successful Response
-     */
-    200: Array<SettingResponse>;
-};
-
-export type ListSettingsProjectsProjectIdSettingsGetResponse = ListSettingsProjectsProjectIdSettingsGetResponses[keyof ListSettingsProjectsProjectIdSettingsGetResponses];
+export type UpdateSettingSettingsSettingKeyPatchResponse = UpdateSettingSettingsSettingKeyPatchResponses[keyof UpdateSettingSettingsSettingKeyPatchResponses];
 
 export type ListImagesProjectsProjectIdImagesGetData = {
     body?: never;
@@ -1330,8 +1514,8 @@ export type GetImageThumbnailProjectsProjectIdImagesImageIdThumbnailGetResponses
     200: unknown;
 };
 
-export type ExportPatchesCsvProjectsProjectIdExportPatchesGetData = {
-    body?: never;
+export type ExportPatchCsvData = {
+    body: ExportRequest;
     path: {
         /**
          * Project Id
@@ -1339,47 +1523,57 @@ export type ExportPatchesCsvProjectsProjectIdExportPatchesGetData = {
         project_id: number;
     };
     query?: never;
-    url: '/projects/{project_id}/export/patches/';
+    url: '/projects/{project_id}/export/patch-csv/';
 };
 
-export type ExportPatchesCsvProjectsProjectIdExportPatchesGetErrors = {
+export type ExportPatchCsvErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type ExportPatchesCsvProjectsProjectIdExportPatchesGetError = ExportPatchesCsvProjectsProjectIdExportPatchesGetErrors[keyof ExportPatchesCsvProjectsProjectIdExportPatchesGetErrors];
+export type ExportPatchCsvError = ExportPatchCsvErrors[keyof ExportPatchCsvErrors];
 
-export type ExportPatchesCsvProjectsProjectIdExportPatchesGetResponses = {
+export type ExportPatchCsvResponses = {
     /**
      * Successful Response
      */
-    200: unknown;
+    200: ExportResponse;
 };
 
-export type ExportLabelsCsvProjectsProjectIdExportLabelsGetData = {
+export type ExportPatchCsvResponse = ExportPatchCsvResponses[keyof ExportPatchCsvResponses];
+
+export type DownloadPatchCsvData = {
     body?: never;
     path: {
         /**
          * Project Id
          */
         project_id: number;
+        /**
+         * Session Id
+         */
+        session_id: string;
+        /**
+         * Image Id
+         */
+        image_id: number;
     };
     query?: never;
-    url: '/projects/{project_id}/export/labels/';
+    url: '/projects/{project_id}/export/{session_id}/download/{image_id}';
 };
 
-export type ExportLabelsCsvProjectsProjectIdExportLabelsGetErrors = {
+export type DownloadPatchCsvErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type ExportLabelsCsvProjectsProjectIdExportLabelsGetError = ExportLabelsCsvProjectsProjectIdExportLabelsGetErrors[keyof ExportLabelsCsvProjectsProjectIdExportLabelsGetErrors];
+export type DownloadPatchCsvError = DownloadPatchCsvErrors[keyof DownloadPatchCsvErrors];
 
-export type ExportLabelsCsvProjectsProjectIdExportLabelsGetResponses = {
+export type DownloadPatchCsvResponses = {
     /**
      * Successful Response
      */
@@ -1658,7 +1852,7 @@ export type SearchRayTasksData = {
     /**
      * Ray Cluster Filters
      */
-    body?: Array<Array<string>>;
+    body?: Array<Array<string>> | null;
     path?: never;
     query?: never;
     url: '/task';

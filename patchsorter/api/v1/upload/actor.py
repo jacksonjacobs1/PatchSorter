@@ -9,7 +9,16 @@ from typing import List
 import ray
 import large_image
 
-from patchsorter.config.constants import IMAGE_EXTS, MASK_EXTS, PATCH_CSV_EXTS, PATCH_BATCH_SIZE
+from patchsorter.config.constants import (
+    IMAGE_EXTS,
+    MASK_EXTS,
+    PATCH_CSV_EXTS,
+    PATCH_BATCH_SIZE,
+    PatchExtractionMethod,
+    LargeImageMetadataKeys,
+    SettingType,
+    SettingScope,
+)
 from patchsorter.utils.fsmanager import FileStoreManager, scan_folder
 from patchsorter.api.v1.upload.models import ProcessRow
 from patchsorter.api.v1.upload.patch_iterator import (
@@ -37,6 +46,18 @@ from patchsorter.utils.patch_extraction import (
 # Core logic extracted into plain functions for testability.
 # The actor delegates to these; tests call them directly with a tmpdir.
 # ------------------------------------------------------------------
+
+
+def _parse_value(value: str, setting_type: SettingType) -> object:
+    """Convert a raw string setting value to its Python type."""
+    match setting_type:
+        case SettingType.INTEGER:
+            return int(value)
+        case SettingType.BOOLEAN:
+            return value.lower() in ("true", "1")
+        case SettingType.ENUM | SettingType.STRING:
+            return value
+
 
 def _check_image_duplicate(project_id: int, image_name: str) -> str | None:
     """Check if an image with *image_name* already exists in *project_id*.
@@ -145,7 +166,7 @@ def _validate_mixed(
 
         try:
             ts = large_image.open(str(img_path))
-            base_mag = ts.getMetadata().get("magnification")
+            base_mag = ts.getMetadata().get(LargeImageMetadataKeys.BASE_MAGNIFICATION)
         except Exception:
             base_mag = None
 
@@ -198,7 +219,7 @@ def _validate_image_csv(csv_content: bytes, session_id: str = "", project_id: in
                 else:
                     try:
                         ts = large_image.open(str(img_full))
-                        base_mag = ts.getMetadata().get("magnification")
+                        base_mag = ts.getMetadata().get(LargeImageMetadataKeys.BASE_MAGNIFICATION)
                     except Exception:
                         base_mag = None
 
@@ -277,37 +298,38 @@ def process_row(
     if process_row_arg.base_mag is not None:
         base_mag = process_row_arg.base_mag
     else:
-        base_mag = ts.getMetadata().get("magnification")
+        base_mag = ts.getMetadata().get(LargeImageMetadataKeys.BASE_MAGNIFICATION)
     if base_mag is None:
         raise ValueError(
             f"base_mag not provided and could not be extracted from image metadata "
             f"for {image_path}"
         )
 
-    # Collect image metadata
-    base_width = ts.getMetadata().get("width", 0)
-    base_height = ts.getMetadata().get("height", 0)
-    deepzoom_tilesize = ts.getMetadata().get("tileWidth", 256)
+    # Collect image metadata (single getMetadata() call)
+    meta = ts.getMetadata()
+    base_width = meta.get(LargeImageMetadataKeys.IMAGE_WIDTH, 0)
+    base_height = meta.get(LargeImageMetadataKeys.IMAGE_HEIGHT, 0)
+    deepzoom_tilesize = meta.get(LargeImageMetadataKeys.TILE_WIDTH, 256)
 
     # Get patch iterator based on available mask and/or CSV
     iterator: GeometryIterable = create_patch_iterator(mask_path, csv_path)
 
     # Load settings (passed from UploadSessionActor — no extra DB round-trip needed)
     patch_size: int = int(settings.get("patch_size", 64))
-    patch_extraction_method: str = settings.get("patch_extraction_method", "use estimated object size")
+    patch_extraction_method: str = settings.get("patch_extraction_method", PatchExtractionMethod.USE_ESTIMATED_OBJECT_SIZE)
     object_radius_str: str | None = settings.get("object_radius")
     object_radius: float | None = float(object_radius_str) if object_radius_str else None
 
     # Determine downsample strategy
     mm_per_pixel = mm_per_pixel_at_base(base_mag)
 
-    if patch_extraction_method == "use manual object radius": # TODO: compare setting with an enum.
+    if patch_extraction_method == PatchExtractionMethod.USE_MANUAL_OBJECT_RADIUS:
         if object_radius is None:
             raise ValueError("object_radius setting is required when patch_extraction_method is 'use manual object radius'")
         downsample = compute_downsample_factor(object_radius, base_mag, patch_size, mm_per_pixel)
         per_patch_downsample = False
 
-    elif patch_extraction_method == "fit all objects":
+    elif patch_extraction_method == PatchExtractionMethod.FIT_ALL_OBJECTS:
         per_patch_downsample = True
         downsample = 1.0  # unused but keeps type-checker happy
     else:
@@ -363,7 +385,11 @@ def process_row(
 
     # Move image to permanent storage after the DB session commits cleanly
     if process_row_arg.image.startswith(f"{session_id}/"):
-        fsman.nas_write.move_to_permanent(session_id, project_id, image_id, image_filename)
+        final_path = fsman.nas_write.move_to_permanent(session_id, project_id, image_id, image_filename)
+
+        # Change the image_path in the DB to the new permanent path
+        with get_client().get_session() as session:
+            ImageStore(session).update(image_id=image_id, project_id=project_id, image_path=final_path)
 
     return {"image_id": image_id, "patch_count": total_patches}
 
@@ -387,7 +413,11 @@ class UploadSessionActor:
 
         # Load project settings from the DB at actor startup
         with get_client().get_session() as session:
-            self._settings = SettingsStore(session).get_all_as_dict(project_id=project_id)
+            raw = SettingsStore(session).get_all_raw(project_id=project_id, scope=SettingScope.PROJECT)
+            self._settings = {
+                k: _parse_value(v.value, v.type)
+                for k, v in raw.items()
+            }
 
     def __ray_shutdown__(self) -> None:
         try:

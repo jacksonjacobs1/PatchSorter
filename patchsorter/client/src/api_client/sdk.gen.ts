@@ -2,7 +2,7 @@
 
 import { type Client, formDataBodySerializer, type Options as Options2, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AssignLabelsByIdsProjectsProjectIdPatchesPostData, AssignLabelsByIdsProjectsProjectIdPatchesPostErrors, AssignLabelsByIdsProjectsProjectIdPatchesPostResponses, AssignLabelsByPolygonProjectsProjectIdPatchesPolygonassignPostData, AssignLabelsByPolygonProjectsProjectIdPatchesPolygonassignPostErrors, AssignLabelsByPolygonProjectsProjectIdPatchesPolygonassignPostResponses, ExportLabelsCsvProjectsProjectIdExportLabelsGetData, ExportLabelsCsvProjectsProjectIdExportLabelsGetErrors, ExportLabelsCsvProjectsProjectIdExportLabelsGetResponses, ExportPatchesCsvProjectsProjectIdExportPatchesGetData, ExportPatchesCsvProjectsProjectIdExportPatchesGetErrors, ExportPatchesCsvProjectsProjectIdExportPatchesGetResponses, GetConfusionMatrixProjectsProjectIdConfusionMatrixGetData, GetConfusionMatrixProjectsProjectIdConfusionMatrixGetErrors, GetConfusionMatrixProjectsProjectIdConfusionMatrixGetResponses, GetImageStatsProjectsProjectIdImagesImageIdStatsGetData, GetImageStatsProjectsProjectIdImagesImageIdStatsGetErrors, GetImageStatsProjectsProjectIdImagesImageIdStatsGetResponses, GetImageThumbnailProjectsProjectIdImagesImageIdThumbnailGetData, GetImageThumbnailProjectsProjectIdImagesImageIdThumbnailGetErrors, GetImageThumbnailProjectsProjectIdImagesImageIdThumbnailGetResponses, GetLabelClassProjectsProjectIdLabelClassesLabelClassIdGetData, GetLabelClassProjectsProjectIdLabelClassesLabelClassIdGetErrors, GetLabelClassProjectsProjectIdLabelClassesLabelClassIdGetResponses, GetPatchImageProjectsProjectIdPatchesPatchIdImageGetData, GetPatchImageProjectsProjectIdPatchesPatchIdImageGetErrors, GetPatchImageProjectsProjectIdPatchesPatchIdImageGetResponses, GetPatchProjectsProjectIdPatchesPatchIdGetData, GetPatchProjectsProjectIdPatchesPatchIdGetErrors, GetPatchProjectsProjectIdPatchesPatchIdGetResponses, GetProjectProjectsProjectIdGetData, GetProjectProjectsProjectIdGetErrors, GetProjectProjectsProjectIdGetResponses, GetProjectStatsProjectsProjectIdStatsGetData, GetProjectStatsProjectsProjectIdStatsGetErrors, GetProjectStatsProjectsProjectIdStatsGetResponses, InfoProjectsProjectIdInfoGetData, InfoProjectsProjectIdInfoGetErrors, InfoProjectsProjectIdInfoGetResponses, ListImagesProjectsProjectIdImagesGetData, ListImagesProjectsProjectIdImagesGetErrors, ListImagesProjectsProjectIdImagesGetResponses, ListLabelClassesProjectsProjectIdLabelClassesGetData, ListLabelClassesProjectsProjectIdLabelClassesGetErrors, ListLabelClassesProjectsProjectIdLabelClassesGetResponses, ListPatchesProjectsProjectIdPatchesGetData, ListPatchesProjectsProjectIdPatchesGetErrors, ListPatchesProjectsProjectIdPatchesGetResponses, ListProjectsProjectsGetData, ListProjectsProjectsGetResponses, ListSettingsProjectsProjectIdSettingsGetData, ListSettingsProjectsProjectIdSettingsGetErrors, ListSettingsProjectsProjectIdSettingsGetResponses, OpenUploadSessionData, OpenUploadSessionErrors, OpenUploadSessionResponses, ProcessUploadCsvData, ProcessUploadCsvErrors, ProcessUploadCsvResponses, ProcessUploadData, ProcessUploadErrors, ProcessUploadResponses, SamplePatchesByBboxProjectsProjectIdSampleByBboxPatchesGetData, SamplePatchesByBboxProjectsProjectIdSampleByBboxPatchesGetErrors, SamplePatchesByBboxProjectsProjectIdSampleByBboxPatchesGetResponses, SamplePatchesByPointProjectsProjectIdSampleByPointPatchesGetData, SamplePatchesByPointProjectsProjectIdSampleByPointPatchesGetErrors, SamplePatchesByPointProjectsProjectIdSampleByPointPatchesGetResponses, SearchRayTasksData, SearchRayTasksErrors, SearchRayTasksResponses, ServeTileProjectsProjectIdTilesZxyPngGetData, ServeTileProjectsProjectIdTilesZxyPngGetErrors, ServeTileProjectsProjectIdTilesZxyPngGetResponses, UpdateProjectProjectsProjectIdPutData, UpdateProjectProjectsProjectIdPutErrors, UpdateProjectProjectsProjectIdPutResponses, UploadImagesData, UploadImagesErrors, UploadImagesResponses, UploadMasksData, UploadMasksErrors, UploadMasksResponses, UploadPatchCsvData, UploadPatchCsvErrors, UploadPatchCsvResponses, ValidateUploadData, ValidateUploadErrors, ValidateUploadImageCsvData, ValidateUploadImageCsvErrors, ValidateUploadImageCsvResponses, ValidateUploadResponses } from './types.gen';
+import type { AssignLabelsByIdsProjectsProjectIdPatchesPostData, AssignLabelsByIdsProjectsProjectIdPatchesPostErrors, AssignLabelsByIdsProjectsProjectIdPatchesPostResponses, AssignLabelsByPolygonProjectsProjectIdPatchesPolygonassignPostData, AssignLabelsByPolygonProjectsProjectIdPatchesPolygonassignPostErrors, AssignLabelsByPolygonProjectsProjectIdPatchesPolygonassignPostResponses, CreateLabelClassProjectsProjectIdLabelClassesPostData, CreateLabelClassProjectsProjectIdLabelClassesPostErrors, CreateLabelClassProjectsProjectIdLabelClassesPostResponses, CreateProjectProjectsPostData, CreateProjectProjectsPostErrors, CreateProjectProjectsPostResponses, DeleteProjectProjectsProjectIdDeleteData, DeleteProjectProjectsProjectIdDeleteErrors, DeleteProjectProjectsProjectIdDeleteResponses, DownloadPatchCsvData, DownloadPatchCsvErrors, DownloadPatchCsvResponses, ExportPatchCsvData, ExportPatchCsvErrors, ExportPatchCsvResponses, GetConfusionMatrixProjectsProjectIdConfusionMatrixGetData, GetConfusionMatrixProjectsProjectIdConfusionMatrixGetErrors, GetConfusionMatrixProjectsProjectIdConfusionMatrixGetResponses, GetDefaultLabelClassProjectsProjectIdLabelClassesDefaultGetData, GetDefaultLabelClassProjectsProjectIdLabelClassesDefaultGetErrors, GetDefaultLabelClassProjectsProjectIdLabelClassesDefaultGetResponses, GetImageStatsProjectsProjectIdImagesImageIdStatsGetData, GetImageStatsProjectsProjectIdImagesImageIdStatsGetErrors, GetImageStatsProjectsProjectIdImagesImageIdStatsGetResponses, GetImageThumbnailProjectsProjectIdImagesImageIdThumbnailGetData, GetImageThumbnailProjectsProjectIdImagesImageIdThumbnailGetErrors, GetImageThumbnailProjectsProjectIdImagesImageIdThumbnailGetResponses, GetLabelClassProjectsProjectIdLabelClassesLabelClassIdGetData, GetLabelClassProjectsProjectIdLabelClassesLabelClassIdGetErrors, GetLabelClassProjectsProjectIdLabelClassesLabelClassIdGetResponses, GetPatchImageProjectsProjectIdPatchesPatchIdImageGetData, GetPatchImageProjectsProjectIdPatchesPatchIdImageGetErrors, GetPatchImageProjectsProjectIdPatchesPatchIdImageGetResponses, GetPatchProjectsProjectIdPatchesPatchIdGetData, GetPatchProjectsProjectIdPatchesPatchIdGetErrors, GetPatchProjectsProjectIdPatchesPatchIdGetResponses, GetProjectProjectsProjectIdGetData, GetProjectProjectsProjectIdGetErrors, GetProjectProjectsProjectIdGetResponses, GetProjectStatsProjectsProjectIdStatsGetData, GetProjectStatsProjectsProjectIdStatsGetErrors, GetProjectStatsProjectsProjectIdStatsGetResponses, InfoProjectsProjectIdInfoGetData, InfoProjectsProjectIdInfoGetErrors, InfoProjectsProjectIdInfoGetResponses, ListImagesProjectsProjectIdImagesGetData, ListImagesProjectsProjectIdImagesGetErrors, ListImagesProjectsProjectIdImagesGetResponses, ListLabelClassesProjectsProjectIdLabelClassesGetData, ListLabelClassesProjectsProjectIdLabelClassesGetErrors, ListLabelClassesProjectsProjectIdLabelClassesGetResponses, ListPatchesProjectsProjectIdPatchesGetData, ListPatchesProjectsProjectIdPatchesGetErrors, ListPatchesProjectsProjectIdPatchesGetResponses, ListProjectsProjectsGetData, ListProjectsProjectsGetResponses, ListSettingsSettingsGetData, ListSettingsSettingsGetErrors, ListSettingsSettingsGetResponses, OpenUploadSessionData, OpenUploadSessionErrors, OpenUploadSessionResponses, ProcessUploadCsvData, ProcessUploadCsvErrors, ProcessUploadCsvResponses, ProcessUploadData, ProcessUploadErrors, ProcessUploadResponses, SearchRayTasksData, SearchRayTasksErrors, SearchRayTasksResponses, ServeTileProjectsProjectIdTilesZxyPngGetData, ServeTileProjectsProjectIdTilesZxyPngGetErrors, ServeTileProjectsProjectIdTilesZxyPngGetResponses, UpdateLabelClassProjectsProjectIdLabelClassesLabelClassIdPutData, UpdateLabelClassProjectsProjectIdLabelClassesLabelClassIdPutErrors, UpdateLabelClassProjectsProjectIdLabelClassesLabelClassIdPutResponses, UpdateProjectProjectsProjectIdPutData, UpdateProjectProjectsProjectIdPutErrors, UpdateProjectProjectsProjectIdPutResponses, UpdateSettingSettingsSettingKeyPatchData, UpdateSettingSettingsSettingKeyPatchErrors, UpdateSettingSettingsSettingKeyPatchResponses, UploadImagesData, UploadImagesErrors, UploadImagesResponses, UploadMasksData, UploadMasksErrors, UploadMasksResponses, UploadPatchCsvData, UploadPatchCsvErrors, UploadPatchCsvResponses, ValidateUploadData, ValidateUploadErrors, ValidateUploadImageCsvData, ValidateUploadImageCsvErrors, ValidateUploadImageCsvResponses, ValidateUploadResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -39,6 +39,23 @@ export const getConfusionMatrixProjectsProjectIdConfusionMatrixGet = <ThrowOnErr
 export const listProjectsProjectsGet = <ThrowOnError extends boolean = false>(options?: Options<ListProjectsProjectsGetData, ThrowOnError>) => (options?.client ?? client).get<ListProjectsProjectsGetResponses, unknown, ThrowOnError>({ url: '/projects/', ...options });
 
 /**
+ * Create Project
+ */
+export const createProjectProjectsPost = <ThrowOnError extends boolean = false>(options: Options<CreateProjectProjectsPostData, ThrowOnError>) => (options.client ?? client).post<CreateProjectProjectsPostResponses, CreateProjectProjectsPostErrors, ThrowOnError>({
+    url: '/projects/',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Project
+ */
+export const deleteProjectProjectsProjectIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteProjectProjectsProjectIdDeleteData, ThrowOnError>) => (options.client ?? client).delete<DeleteProjectProjectsProjectIdDeleteResponses, DeleteProjectProjectsProjectIdDeleteErrors, ThrowOnError>({ url: '/projects/{project_id}', ...options });
+
+/**
  * Get Project
  */
 export const getProjectProjectsProjectIdGet = <ThrowOnError extends boolean = false>(options: Options<GetProjectProjectsProjectIdGetData, ThrowOnError>) => (options.client ?? client).get<GetProjectProjectsProjectIdGetResponses, GetProjectProjectsProjectIdGetErrors, ThrowOnError>({ url: '/projects/{project_id}', ...options });
@@ -46,7 +63,14 @@ export const getProjectProjectsProjectIdGet = <ThrowOnError extends boolean = fa
 /**
  * Update Project
  */
-export const updateProjectProjectsProjectIdPut = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectProjectsProjectIdPutData, ThrowOnError>) => (options.client ?? client).put<UpdateProjectProjectsProjectIdPutResponses, UpdateProjectProjectsProjectIdPutErrors, ThrowOnError>({ url: '/projects/{project_id}', ...options });
+export const updateProjectProjectsProjectIdPut = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectProjectsProjectIdPutData, ThrowOnError>) => (options.client ?? client).put<UpdateProjectProjectsProjectIdPutResponses, UpdateProjectProjectsProjectIdPutErrors, ThrowOnError>({
+    url: '/projects/{project_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get Project Stats
@@ -59,9 +83,38 @@ export const getProjectStatsProjectsProjectIdStatsGet = <ThrowOnError extends bo
 export const listLabelClassesProjectsProjectIdLabelClassesGet = <ThrowOnError extends boolean = false>(options: Options<ListLabelClassesProjectsProjectIdLabelClassesGetData, ThrowOnError>) => (options.client ?? client).get<ListLabelClassesProjectsProjectIdLabelClassesGetResponses, ListLabelClassesProjectsProjectIdLabelClassesGetErrors, ThrowOnError>({ url: '/projects/{project_id}/label_classes/', ...options });
 
 /**
+ * Create Label Class
+ */
+export const createLabelClassProjectsProjectIdLabelClassesPost = <ThrowOnError extends boolean = false>(options: Options<CreateLabelClassProjectsProjectIdLabelClassesPostData, ThrowOnError>) => (options.client ?? client).post<CreateLabelClassProjectsProjectIdLabelClassesPostResponses, CreateLabelClassProjectsProjectIdLabelClassesPostErrors, ThrowOnError>({
+    url: '/projects/{project_id}/label_classes/',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Default Label Class
+ */
+export const getDefaultLabelClassProjectsProjectIdLabelClassesDefaultGet = <ThrowOnError extends boolean = false>(options: Options<GetDefaultLabelClassProjectsProjectIdLabelClassesDefaultGetData, ThrowOnError>) => (options.client ?? client).get<GetDefaultLabelClassProjectsProjectIdLabelClassesDefaultGetResponses, GetDefaultLabelClassProjectsProjectIdLabelClassesDefaultGetErrors, ThrowOnError>({ url: '/projects/{project_id}/label_classes/default', ...options });
+
+/**
  * Get Label Class
  */
 export const getLabelClassProjectsProjectIdLabelClassesLabelClassIdGet = <ThrowOnError extends boolean = false>(options: Options<GetLabelClassProjectsProjectIdLabelClassesLabelClassIdGetData, ThrowOnError>) => (options.client ?? client).get<GetLabelClassProjectsProjectIdLabelClassesLabelClassIdGetResponses, GetLabelClassProjectsProjectIdLabelClassesLabelClassIdGetErrors, ThrowOnError>({ url: '/projects/{project_id}/label_classes/{label_class_id}', ...options });
+
+/**
+ * Update Label Class
+ */
+export const updateLabelClassProjectsProjectIdLabelClassesLabelClassIdPut = <ThrowOnError extends boolean = false>(options: Options<UpdateLabelClassProjectsProjectIdLabelClassesLabelClassIdPutData, ThrowOnError>) => (options.client ?? client).put<UpdateLabelClassProjectsProjectIdLabelClassesLabelClassIdPutResponses, UpdateLabelClassProjectsProjectIdLabelClassesLabelClassIdPutErrors, ThrowOnError>({
+    url: '/projects/{project_id}/label_classes/{label_class_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * List Patches
@@ -96,19 +149,21 @@ export const assignLabelsByPolygonProjectsProjectIdPatchesPolygonassignPost = <T
 });
 
 /**
- * Sample Patches By Bbox
- */
-export const samplePatchesByBboxProjectsProjectIdSampleByBboxPatchesGet = <ThrowOnError extends boolean = false>(options: Options<SamplePatchesByBboxProjectsProjectIdSampleByBboxPatchesGetData, ThrowOnError>) => (options.client ?? client).get<SamplePatchesByBboxProjectsProjectIdSampleByBboxPatchesGetResponses, SamplePatchesByBboxProjectsProjectIdSampleByBboxPatchesGetErrors, ThrowOnError>({ url: '/projects/{project_id}/sample/by-bbox/patches/', ...options });
-
-/**
- * Sample Patches By Point
- */
-export const samplePatchesByPointProjectsProjectIdSampleByPointPatchesGet = <ThrowOnError extends boolean = false>(options: Options<SamplePatchesByPointProjectsProjectIdSampleByPointPatchesGetData, ThrowOnError>) => (options.client ?? client).get<SamplePatchesByPointProjectsProjectIdSampleByPointPatchesGetResponses, SamplePatchesByPointProjectsProjectIdSampleByPointPatchesGetErrors, ThrowOnError>({ url: '/projects/{project_id}/sample/by-point/patches/', ...options });
-
-/**
  * List Settings
  */
-export const listSettingsProjectsProjectIdSettingsGet = <ThrowOnError extends boolean = false>(options: Options<ListSettingsProjectsProjectIdSettingsGetData, ThrowOnError>) => (options.client ?? client).get<ListSettingsProjectsProjectIdSettingsGetResponses, ListSettingsProjectsProjectIdSettingsGetErrors, ThrowOnError>({ url: '/projects/{project_id}/settings/', ...options });
+export const listSettingsSettingsGet = <ThrowOnError extends boolean = false>(options?: Options<ListSettingsSettingsGetData, ThrowOnError>) => (options?.client ?? client).get<ListSettingsSettingsGetResponses, ListSettingsSettingsGetErrors, ThrowOnError>({ url: '/settings/', ...options });
+
+/**
+ * Update Setting
+ */
+export const updateSettingSettingsSettingKeyPatch = <ThrowOnError extends boolean = false>(options: Options<UpdateSettingSettingsSettingKeyPatchData, ThrowOnError>) => (options.client ?? client).patch<UpdateSettingSettingsSettingKeyPatchResponses, UpdateSettingSettingsSettingKeyPatchErrors, ThrowOnError>({
+    url: '/settings/{setting_key}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * List Images
@@ -126,14 +181,29 @@ export const getImageStatsProjectsProjectIdImagesImageIdStatsGet = <ThrowOnError
 export const getImageThumbnailProjectsProjectIdImagesImageIdThumbnailGet = <ThrowOnError extends boolean = false>(options: Options<GetImageThumbnailProjectsProjectIdImagesImageIdThumbnailGetData, ThrowOnError>) => (options.client ?? client).get<GetImageThumbnailProjectsProjectIdImagesImageIdThumbnailGetResponses, GetImageThumbnailProjectsProjectIdImagesImageIdThumbnailGetErrors, ThrowOnError>({ url: '/projects/{project_id}/images/{image_id}/thumbnail/', ...options });
 
 /**
- * Export Patches Csv
+ * Export Patch Csv
+ *
+ * Start a patch label CSV export.
+ *
+ * Creates an export session actor, dispatches the CSV generation task,
+ * and returns the task ID (for progress tracking) and **populated** manifest URLs
+ * for downloading the resulting CSV files.
  */
-export const exportPatchesCsvProjectsProjectIdExportPatchesGet = <ThrowOnError extends boolean = false>(options: Options<ExportPatchesCsvProjectsProjectIdExportPatchesGetData, ThrowOnError>) => (options.client ?? client).get<ExportPatchesCsvProjectsProjectIdExportPatchesGetResponses, ExportPatchesCsvProjectsProjectIdExportPatchesGetErrors, ThrowOnError>({ url: '/projects/{project_id}/export/patches/', ...options });
+export const exportPatchCsv = <ThrowOnError extends boolean = false>(options: Options<ExportPatchCsvData, ThrowOnError>) => (options.client ?? client).post<ExportPatchCsvResponses, ExportPatchCsvErrors, ThrowOnError>({
+    url: '/projects/{project_id}/export/patch-csv/',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
- * Export Labels Csv
+ * Download Patch Csv
+ *
+ * Stream a patch CSV file for the given image_id from the export session directory.
  */
-export const exportLabelsCsvProjectsProjectIdExportLabelsGet = <ThrowOnError extends boolean = false>(options: Options<ExportLabelsCsvProjectsProjectIdExportLabelsGetData, ThrowOnError>) => (options.client ?? client).get<ExportLabelsCsvProjectsProjectIdExportLabelsGetResponses, ExportLabelsCsvProjectsProjectIdExportLabelsGetErrors, ThrowOnError>({ url: '/projects/{project_id}/export/labels/', ...options });
+export const downloadPatchCsv = <ThrowOnError extends boolean = false>(options: Options<DownloadPatchCsvData, ThrowOnError>) => (options.client ?? client).get<DownloadPatchCsvResponses, DownloadPatchCsvErrors, ThrowOnError>({ url: '/projects/{project_id}/export/{session_id}/download/{image_id}', ...options });
 
 /**
  * Open Upload Session
