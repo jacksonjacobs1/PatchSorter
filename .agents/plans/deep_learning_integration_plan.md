@@ -78,16 +78,32 @@ WHERE priority > 0;
 ```
 
 **Notes**:
-- No partial index needed on ground truth label column
 - The prototype's partial index on `score_timestamp` (line 102-108, `sqlite_dataset.py`) shows the pattern — this will be migrated to `priority`
 
-### 2.2 Priority column on patch table
+### 2.2 Partial index on ground truth label column
+
+**Purpose**: Rapid selection of labeled patches for training enrichment.
+
+**Proposed index**:
+```sql
+CREATE INDEX idx_patches_gt_label_positive
+ON patches (label_class_id)
+WHERE label_class_id > 0;
+```
+
+**Notes**:
+- The prototype creates this on `tmp_label` where `tmp_label > -1` (line 109-115, `sqlite_dataset.py`)
+- After §2.4, the unassigned class has ID `-1` and user classes start at `0`, so `WHERE label_class_id > 0` excludes both unassigned and the class at index 0
+- If class 0 should be included, use `WHERE label_class_id >= 0` instead
+- Paired with the `priority` partial index (§2.1) to support fast enrichment queries for labeled patches
+
+### 2.3 Priority column on patch table
 
 **Format**: `XX.YY`
 - `XX` — integer: number of times the patch has been sampled for training
 - `YY` — float in `[0, 1]`: patch weighting (rarity score)
 
-**Implementation**: Add `priority` column to the dynamic patch model in `patchsorter/db/head_client/models.py:153-172`.
+**Implementation**: Add `priority` column to the dynamic patch model in `patchsorter/db/head_client/models.py:148-167`.
 
 **Action**: Add to the `patch_model()` function's column dict:
 ```python
@@ -98,6 +114,60 @@ WHERE priority > 0;
 - `priority` replaces `score_timestamp` from the prototype
 - No `ALTER TABLE` migration needed — the column is defined in the ORM model
 - Update interval: per-batch (like prototype)
+
+### 2.4 Label class autoincrement — unassigned class ID change to -1
+
+**Current state**: The "Unassigned" / "Unlabeled" class has `label_class_id = 1` (positive integer).
+
+**Current seeding** (`database_manager.py:131-136`):
+```sql
+INSERT INTO label_class (project_id, name, color_code)
+SELECT NULL, 'unassigned', NULL
+WHERE NOT EXISTS (SELECT 1 FROM label_class WHERE label_class_id = 1);
+```
+
+**Current constant** (`config/constants.py:41`):
+```python
+UNASSIGNED_CLASS_ID = 1
+```
+
+**Current model** (`models.py:90`):
+```python
+label_class_id = Column(Integer, primary_key=True, autoincrement=True)
+```
+
+**Changes required**:
+
+1. **`UNASSIGNED_CLASS_ID`** in `config/constants.py`: Change from `1` to `-1`
+2. **Seeding SQL** in `database_manager.py:131-136`: Change `label_class_id = 1` to `label_class_id = -1`
+3. **`label_class_id` column** in `models.py:90`: Remove `autoincrement=True` — the unassigned class gets an explicit ID of -1, and subsequent classes autoincrement from there. The sequence must start at 0 so the first user-created class gets ID 0, then 1, 2, ...
+   ```python
+   label_class_id = Column(Integer, primary_key=True)
+   ```
+4. **Sequence initialization**: After `create_all()`, ensure the sequence is set to start at 0:
+   ```sql
+   SELECT setval(pg_get_serial_sequence('label_class', 'label_class_id'), 0, false);
+   ```
+   This ensures user-created classes get IDs 0, 1, 2, ... while -1 is reserved for unassigned.
+5. **`LabelClassStore.delete()`** in `label_class.py:164`: Update the guard from `UNASSIGNED_CLASS_ID == 1` to `UNASSIGNED_CLASS_ID == -1` (constant reference, so no code change needed if the constant is updated)
+6. **All references to `label_class_id == 1`** across the codebase must be audited and updated to use `UNASSIGNED_CLASS_ID` or `-1` as appropriate. Key locations:
+   - `database_manager.py:135` — seeding SQL
+   - `database_manager.py:134` — project_id is NULL (global unassigned class)
+   - `label_class.py:139` — docstring referencing `label_class_id = 1`
+   - `label_class.py:164` — `UNASSIGNED_CLASS_ID` reference (uses constant, no change needed)
+   - `label_class.py:174,183,193,199` — `UNASSIGNED_CLASS_ID` references (uses constant, no change needed)
+   - `image.py:165` — `label_class_id = 1` reset (should use `UNASSIGNED_CLASS_ID`)
+   - `training.py:146` — docstring `Returns 1 (unassigned)` — update to `-1`
+   - `training.py:85` — docstring `label_class_id == 1` — update to `UNASSIGNED_CLASS_ID`
+   - `training.py:127-128` — docstring references to unassigned class ID
+7. **`training.py:LabelMap`**: The `to_model_index()` method already handles `None` and `UNASSIGNED_CLASS_ID` via the constant. After the constant change, `from_model_index()` fallback at line 149 (`UNASSIGNED_CLASS_ID`) will return `-1` instead of `1` — this is correct behavior for the model output.
+
+**Notes**:
+- Using `-1` for unassigned aligns with the prototype's `tmp_label > -1` convention
+- Positive IDs (0, 1, 2, ...) for user classes simplify the partial index in §2.2 (`WHERE label_class_id > 0`)
+- The autoincrement sequence must be carefully managed to avoid collisions with the reserved -1 value
+- Existing databases will need a migration script to update `label_class_id = 1` → `-1` for the unassigned row, and update all foreign key references in `patches`, `pred_patch_latest`, `pred_patch_last`, and confusion matrix tables
+- For the development instance (recreated after schema update), no migration is needed
 
 ---
 
@@ -127,6 +197,7 @@ WHERE priority > 0;
 - Infinite iteration with periodic pool refresh
 - Draws batches weighted by candidate score (rarity)
 - Decays in-memory scores after each draw
+- **Waits for ground truth labels before enrichment begins** (see §3.2.1)
 
 **Implementation approach**:
 - Create `EnrichedInfiniteIterableDataset` as a new `IterableDataset`
@@ -138,6 +209,40 @@ WHERE priority > 0;
 
 **Sharding note**: The enriched dataloader must query across Citus shards. Since Citus does not support `ORDER BY` + `LIMIT` across shards efficiently, the UNION must be performed manually on PostgreSQL (not through Citus). Each shard is queried separately and results merged client-side.
 
+#### 3.2.1 Label-waiting mechanism
+
+**Problem**: The candidate pool is populated from patches with ground truth labels. At training start, no labels may exist yet (project just created, user hasn't labeled anything). Drawing from an empty pool wastes compute cycles.
+
+**Solution**: Each `EnrichedInfiniteIterableDataset` instance checks periodically whether any labeled patches exist in the database before drawing from the pool.
+
+- **`CandidatePool.has_labels()`** — new method that queries the database for `SELECT EXISTS(SELECT 1 FROM patches WHERE label_class_id > 0 LIMIT 1)`. Returns `True` if any labeled patch exists.
+- **Check frequency**: Every N batches (configurable via `GT_LABEL_CHECK_INTERVAL`, default 10 batches)
+- **Behavior when no labels**: Yield `None` or skip enrichment for that batch (sequential-only training)
+- **Behavior when labels found**: Begin normal enrichment flow — load candidate pool and draw batches
+- **Once labels exist**: No further checks needed for the lifetime of the pool (optimization: skip subsequent checks after first positive)
+
+**Implementation in `EnrichedInfiniteIterableDataset.__iter__`**:
+```python
+batches_since_check = 0
+labels_confirmed = False
+
+while True:
+    if not labels_confirmed:
+        batches_since_check += 1
+        if batches_since_check >= GT_LABEL_CHECK_INTERVAL:
+            labels_confirmed = self.pool.has_labels()
+            if labels_confirmed:
+                self.pool.refresh()  # Load initial candidate pool
+            batches_since_check = 0
+    
+    if not labels_confirmed:
+        yield None  # Skip enrichment, sequential-only batch
+        continue
+    
+    picks = self.pool.draw_batch(batch_size)
+    yield self._collate_from_picks(picks)
+```
+
 ### 3.3 Training loop structure
 
 ```
@@ -147,8 +252,11 @@ enriched_iter = iter(enriched_loader)
 
 # Inside cycle loop:
 for finite_batch in dataloader_sequential:  # stops when exhausted
-    infinite_batch = next(enriched_iter)
-    batch = concat_batches(finite_batch, infinite_batch)
+    infinite_batch = next(enriched_iter)  # may be None while waiting for labels
+    if infinite_batch is not None:
+        batch = concat_batches(finite_batch, infinite_batch)
+    else:
+        batch = finite_batch  # sequential-only
     loss = model(batch)
     loss.backward()
     optimizer.step()
@@ -159,10 +267,11 @@ for finite_batch in dataloader_sequential:  # stops when exhausted
 
 **Key design decisions**:
 - Enriched dataloader instantiated outside sequential loop (as specified) to maintain pool state
-- Each training batch = concatenation of sequential + enriched
+- Each training batch = concatenation of sequential + enriched (or sequential-only while waiting for labels)
 - Only sequential part saved to predictions (per spec)
 - Only base (sequential) batch labels update the label weight tracker — `labels[0:nbase_ids]` — matching `start_v4_sqlite.py:395`
 - Both parts contribute to loss computation and backprop
+- **Label waiting**: Enrichment begins only after `CandidatePool.has_labels()` confirms ground truth labels exist in the database
 
 ---
 
@@ -303,7 +412,7 @@ This means `labels.repeat(V)` does NOT align with the flat tensor layout — lab
 ### 7.2 New classes to add to `patchsorter/dl/`
 - [ ] `IterableShardDataset` — sequential shard iterator (place in `datasets.py`, from `ShardDataset` pattern)
 - [ ] `EnrichedInfiniteIterableDataset` — enriched infinite dataloader (place in `datasets.py`, from `CandidatePoolIterableDataset`)
-- [ ] `CandidatePool` — in-memory candidate pool with score decay (place in `datasets.py`, from `GTCandidatePool`)
+- [ ] `CandidatePool` — in-memory candidate pool with score decay + `has_labels()` method (place in `datasets.py`, from `GTCandidatePool`)
 - [ ] `AdaptiveThreshold` — per-class adaptive threshold (place in `losses.py`, from `utils.py:1396`)
 - [ ] `ScoreWriter` — DB score writer using batched updates (place in `scoring.py`; calls the DB worker client but belongs in the DL layer, not the DB layer)
 
@@ -326,6 +435,7 @@ This means `labels.repeat(V)` does NOT align with the flat tensor layout — lab
 - [ ] Add `dataloader_sequential` iteration (until exhaustion)
 - [ ] Add `dataloader_enriched` iteration (within sequential loop)
 - [ ] GPU-side batch concatenation (preserving v4 pattern)
+- [ ] Handle `None` enrichment batches when labels not yet found (sequential-only training)
 - [ ] Only sequential predictions saved
 - [ ] Only base (sequential) batch labels update tracker — use `labels[0:nbase_ids]`
 - [ ] Priority score update per batch on sequential part only — pass `nbase_ids` (not `len(ids)`) to `compute_weighting_scores()`
@@ -346,8 +456,18 @@ This means `labels.repeat(V)` does NOT align with the flat tensor layout — lab
 - [ ] Add `NBATCH_PSEUDO_WARMUP` constant
 - [ ] Add `GT_*` constants for candidate pool sizing
 - [ ] Add `K_NEIGHBORS`, `GT_SPATIAL_RARITY_ALPHA`, `GT_CLASS_RARITY_ALPHA`
+- [ ] Add `GT_LABEL_CHECK_INTERVAL` constant (default 10 batches)
 
-### 7.7 Augmentation integration
+### 7.7 Label class unassigned ID change (§2.4)
+- [ ] Update `UNASSIGNED_CLASS_ID` constant from `1` to `-1` in `config/constants.py`
+- [ ] Update seeding SQL in `database_manager.py` to use `label_class_id = -1`
+- [ ] Remove `autoincrement=True` from `LabelClass.label_class_id` column in `models.py`
+- [ ] Add `setval()` call to initialize sequence at 0 after `create_all()`
+- [ ] Audit all `label_class_id == 1` references and update to use `UNASSIGNED_CLASS_ID` or `-1`
+- [ ] Update docstrings referencing `label_class_id = 1` or `1 (unassigned)`
+- [ ] Update `image.py:165` to use `UNASSIGNED_CLASS_ID` instead of literal `1`
+
+### 7.8 Augmentation integration
 - [ ] Verify `augmentations.py` is compatible with prototype's `get_transforms()`
 
 ---
@@ -355,7 +475,7 @@ This means `labels.repeat(V)` does NOT align with the flat tensor layout — lab
 ## 8. Open Questions — Resolved
 
 1. **Priority column vs score_timestamp**: ✅ `priority` replaces `score_timestamp`.
-2. **Partial index scope**: ✅ Only on `priority` column where `priority > 0`. No index needed for ground truth label column.
+2. **Partial index scope**: ✅ Partial indexes on both `priority` (§2.1) and `label_class_id > 0` (§2.2).
 3. **Backend for enriched dataloader**: ✅ Production uses PostgreSQL via worker client (not SQLite). SQLite is prototyping-only.
 4. **SwAV prototypes source**: ✅ Add `prototypes` attribute to `JointHead` model. Copy `swav_loss()` from prototype as-is; keep `SWAV_KMEANS_ITERS` as variable.
 5. **`compute_weighting_scores` integration**: ✅ Computed per-batch on the sequential part of the batch.
@@ -368,6 +488,9 @@ This means `labels.repeat(V)` does NOT align with the flat tensor layout — lab
 12. **Enriched dataloader sharding**: ✅ Query across shards via manual UNION on PostgreSQL (not Citus), with `ORDER BY priority` + `LIMIT`.
 13. **Loss weight constants**: ✅ All constants from `configs.py` are preserved as-is — they have been tuned in the prototype.
 14. **New constants (`NBATCH_PSEUDO_WARMUP`, `GT_*`, `K_NEIGHBORS`)**: ✅ Values preserved from prototype — carefully tuned and should not be modified.
+15. The tmp_label column included in the prototype was used for simulating a user iteratively adding labels and should not be ported into production.
+16. **Label-waiting before enrichment**: ✅ `CandidatePool.has_labels()` checks DB periodically (every N batches) for `label_class_id > 0`. Until labels exist, enriched dataloader yields `None` and training runs sequential-only. Once labels found, pool loads and enrichment begins normally.
+17. **Unassigned class ID**: ✅ Changed from `1` to `-1`. Sequence starts at 0 so user classes get IDs 0, 1, 2, ... Partial index uses `WHERE label_class_id > 0`. Existing production DBs need a migration script; development instance is unaffected.
 
 ---
 
