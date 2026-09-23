@@ -66,19 +66,21 @@ This is the critical fix for labels from different views. The flattened layout m
 
 ## 2. Database Changes
 
-### 2.1 Partial index on priority column
+### 2.1 Partial index on train_priority column
 
 **Purpose**: Rapid selection of rare/labeled patches for training enrichment.
 
+**Naming note**: The DL rarity-scoring column is named `train_priority`, not `priority`. The name `priority` is already used elsewhere in the codebase for an unrelated concept — a computed value (1 = from `pred_patch_latest`, 2 = from `pred_patch_last`) indicating prediction-source precedence, returned by `PatchStore._paginated_pred_join()` (`patchsorter/db/head_client/patch.py`) and also exposed through the API (`priority?: number` in `types.gen.ts`). Reusing `priority` for the new column would collide with this existing field.
+
 **Proposed index**:
 ```sql
-CREATE INDEX idx_patches_priority_positive
-ON patches (priority)
-WHERE priority > 0;
+CREATE INDEX idx_patches_train_priority_positive
+ON patches (train_priority)
+WHERE train_priority > 0;
 ```
 
 **Notes**:
-- The prototype's partial index on `score_timestamp` (line 102-108, `sqlite_dataset.py`) shows the pattern — this will be migrated to `priority`
+- The prototype's partial index on `score_timestamp` (line 102-108, `sqlite_dataset.py`) shows the pattern — this will be migrated to `train_priority`
 
 ### 2.2 Partial index on ground truth label column
 
@@ -95,23 +97,24 @@ WHERE label_class_id > 0;
 - The prototype creates this on `tmp_label` where `tmp_label > -1` (line 109-115, `sqlite_dataset.py`)
 - After §2.4, the unassigned class has ID `-1` and user classes start at `0`, so `WHERE label_class_id > 0` excludes both unassigned and the class at index 0
 - If class 0 should be included, use `WHERE label_class_id >= 0` instead
-- Paired with the `priority` partial index (§2.1) to support fast enrichment queries for labeled patches
+- Paired with the `train_priority` partial index (§2.1) to support fast enrichment queries for labeled patches
 
-### 2.3 Priority column on patch table
+### 2.3 train_priority column on patch table
 
 **Format**: `XX.YY`
 - `XX` — integer: number of times the patch has been sampled for training
 - `YY` — float in `[0, 1]`: patch weighting (rarity score)
 
-**Implementation**: Add `priority` column to the dynamic patch model in `patchsorter/db/head_client/models.py:148-167`.
+**Implementation**: Add `train_priority` column to the dynamic patch model in `patchsorter/db/head_client/models.py:148-167`.
 
 **Action**: Add to the `patch_model()` function's column dict:
 ```python
-"priority": Column(Float, nullable=True),
+"train_priority": Column(Float, nullable=True),
 ```
 
 **Notes**:
-- `priority` replaces `score_timestamp` from the prototype
+- `train_priority` replaces `score_timestamp` from the prototype
+- Named `train_priority` (not `priority`) to avoid colliding with the existing prediction-source `priority` field described in §2.1
 - No `ALTER TABLE` migration needed — the column is defined in the ORM model
 - Update interval: per-batch (like prototype)
 
@@ -119,7 +122,7 @@ WHERE label_class_id > 0;
 
 **Current state**: The "Unassigned" / "Unlabeled" class has `label_class_id = 1` (positive integer).
 
-**Current seeding** (`database_manager.py:131-136`):
+**Current seeding** (`database_manager.py:93-97`):
 ```sql
 INSERT INTO label_class (project_id, name, color_code)
 SELECT NULL, 'unassigned', NULL
@@ -139,7 +142,7 @@ label_class_id = Column(Integer, primary_key=True, autoincrement=True)
 **Changes required**:
 
 1. **`UNASSIGNED_CLASS_ID`** in `config/constants.py`: Change from `1` to `-1`
-2. **Seeding SQL** in `database_manager.py:131-136`: Change `label_class_id = 1` to `label_class_id = -1`
+2. **Seeding SQL** in `database_manager.py:93-97`: Change `label_class_id = 1` to `label_class_id = -1`
 3. **`label_class_id` column** in `models.py:90`: Remove `autoincrement=True` — the unassigned class gets an explicit ID of -1, and subsequent classes autoincrement from there. The sequence must start at 0 so the first user-created class gets ID 0, then 1, 2, ...
    ```python
    label_class_id = Column(Integer, primary_key=True)
@@ -151,16 +154,17 @@ label_class_id = Column(Integer, primary_key=True, autoincrement=True)
    This ensures user-created classes get IDs 0, 1, 2, ... while -1 is reserved for unassigned.
 5. **`LabelClassStore.delete()`** in `label_class.py:164`: Update the guard from `UNASSIGNED_CLASS_ID == 1` to `UNASSIGNED_CLASS_ID == -1` (constant reference, so no code change needed if the constant is updated)
 6. **All references to `label_class_id == 1`** across the codebase must be audited and updated to use `UNASSIGNED_CLASS_ID` or `-1` as appropriate. Key locations:
-   - `database_manager.py:135` — seeding SQL
-   - `database_manager.py:134` — project_id is NULL (global unassigned class)
+   - `database_manager.py:97` — seeding SQL
+   - `database_manager.py:96` — project_id is NULL (global unassigned class)
    - `label_class.py:139` — docstring referencing `label_class_id = 1`
    - `label_class.py:164` — `UNASSIGNED_CLASS_ID` reference (uses constant, no change needed)
    - `label_class.py:174,183,193,199` — `UNASSIGNED_CLASS_ID` references (uses constant, no change needed)
    - `image.py:165` — `label_class_id = 1` reset (should use `UNASSIGNED_CLASS_ID`)
-   - `training.py:146` — docstring `Returns 1 (unassigned)` — update to `-1`
-   - `training.py:85` — docstring `label_class_id == 1` — update to `UNASSIGNED_CLASS_ID`
-   - `training.py:127-128` — docstring references to unassigned class ID
-7. **`training.py:LabelMap`**: The `to_model_index()` method already handles `None` and `UNASSIGNED_CLASS_ID` via the constant. After the constant change, `from_model_index()` fallback at line 149 (`UNASSIGNED_CLASS_ID`) will return `-1` instead of `1` — this is correct behavior for the model output.
+   - `training.py:152` — docstring `Returns 1 (unassigned)` — update to `-1`
+   - `training.py:91` — docstring `label_class_id == 1` — update to `UNASSIGNED_CLASS_ID`
+   - `training.py:129` — `to_model_index()` docstring references to unassigned class ID
+   - Line numbers above reflect HEAD as of this update — commit `a3c1f6bdaac7db18d596d9454cdb8fc17cfb7926` (DL actor/freeze-control merge) shifted several of them from the original plan draft; re-verify against HEAD before editing
+7. **`training.py:LabelMap`**: The `to_model_index()` method already handles `None` and `UNASSIGNED_CLASS_ID` via the constant. After the constant change, `from_model_index()`'s fallback default (`training.py:144`, returns `UNASSIGNED_CLASS_ID`) will return `-1` instead of `1` — this is correct behavior for the model output.
 
 **Notes**:
 - Using `-1` for unassigned aligns with the prototype's `tmp_label > -1` convention
@@ -173,9 +177,21 @@ label_class_id = Column(Integer, primary_key=True, autoincrement=True)
 
 ## 3. Dataloader Design
 
+**Architecture requirement**: Both dataloaders must be implemented as genuine
+`torch.utils.data.IterableDataset` subclasses wrapped in a
+`torch.utils.data.DataLoader` — not consumed as plain Python iterables
+in-process, which is how the current `ShardDataset` works
+(`patchsorter/dl/training.py:182-222`, consumed via a bare `for ... in
+ShardDataset(...)` loop inside `train_worker`). Moving to a real
+`IterableDataset` + `DataLoader` pushes CPU-bound work (DB fetch, image
+decode, NVIEWS augmentation) off the main GPU training loop and into
+`DataLoader` worker processes, which prefetch concurrently with the
+backbone/joint_head forward-backward pass.
+
 ### 3.1 `dataloader_sequential`
 
-**Source**: `IterableShardDataset` (new class, based on `ShardDataset` pattern in `training.py`)
+**Source**: `IterableShardDataset(torch.utils.data.IterableDataset)` (new class,
+replaces the current plain-iterable `ShardDataset`)
 
 **Behavior**:
 - Iterates sequentially through worker-assigned shards
@@ -184,13 +200,55 @@ label_class_id = Column(Integer, primary_key=True, autoincrement=True)
 - Iterated until exhausted at the start of each cycle
 
 **Implementation approach**:
-- Extend or replace `ShardDataset` in `training.py` to be an `IterableDataset`
-- Each worker gets a deterministic shard subset via `compute_shard_assignments()`
-- Yields batches of decoded patches from assigned shards
+- Replace `ShardDataset` with `IterableShardDataset`, subclassing
+  `torch.utils.data.IterableDataset`. Move the DB session/cursor/fetch logic
+  currently in `ShardDataset.__iter__` **and** the image-decode
+  (`_decode_patch_image`) + NVIEWS augmentation construction currently
+  inline in `train_worker`'s for-loop (`training.py` ~lines 390-401) into
+  this dataset's `__iter__`, so each yielded item is already a decoded,
+  augmented CPU tensor ready for `.to(device)`.
+- Each Ray Train worker still gets a deterministic shard subset via
+  `compute_shard_assignments()` (unchanged — first level of sharding).
+- Within a single Ray Train worker, use `torch.utils.data.get_worker_info()`
+  inside `__iter__` to partition that worker's `assigned_shards` across the
+  `DataLoader`'s own worker processes (second level of sharding) — required
+  whenever `num_workers > 1`, to avoid duplicate or missing shards.
+- Wrap in `DataLoader(IterableShardDataset(...), batch_size=None,
+  num_workers=N, multiprocessing_context="spawn", worker_init_fn=...,
+  persistent_workers=True)`. `batch_size=None` because the dataset yields
+  pre-collated, already-augmented batches directly, matching the existing
+  DB-side batching (`fetch_patch_batch`).
+- **Session/process safety**: Use `multiprocessing_context="spawn"` (not the
+  default `"fork"`) to avoid inheriting live socket/connection file
+  descriptors from the parent process. `worker_init_fn` calls a new
+  `dispose_engine()` helper (add to `patchsorter/db/utils.py`, e.g.
+  `SessionManager.dispose_engine()` wrapping SQLAlchemy's
+  `self.engine.dispose()`) so each spawned worker drops any
+  pickled/reconstructed engine's inherited connection pool and lazily opens
+  fresh connections on first use inside `__iter__`. The dataset must hold
+  raw connection parameters (or call `worker_client.get_client()` fresh
+  inside `__iter__`), not a live `SessionManager`/engine, to remain
+  picklable under `spawn`.
+- **Augmentation determinism across workers**: `worker_init_fn` must also
+  reseed NumPy/Python RNGs per worker (e.g. via `torch.initial_seed()` /
+  `worker_info.seed`) — otherwise Albumentations' NumPy-based randomness in
+  `get_transforms()` (`patchsorter/dl/augmentations.py`) will produce
+  identical augmentations across workers. Re-instantiate
+  `get_transforms(patch_size)` once per worker inside `__iter__` rather than
+  passing pre-built transform objects through `__init__`.
+- **Further consideration**: size `num_workers` from the per-worker CPU
+  allocation Ray Train grants each process (via `app_config` / Ray resource
+  spec), not a hardcoded constant.
+- `train_worker`'s main loop changes accordingly: replace
+  `dataset = ShardDataset(...)` and the inline decode/augment block with
+  `sequential_loader = DataLoader(IterableShardDataset(...), batch_size=None, num_workers=...)`,
+  iterating pre-augmented CPU tensors and moving only `.to(device)` into the
+  main process.
 
 ### 3.2 `dataloader_enriched`
 
-**Source**: `EnrichedInfiniteIterableDataset` (new class, based on `CandidatePoolIterableDataset` in `sqlite_dataset.py`)
+**Source**: `EnrichedInfiniteIterableDataset(torch.utils.data.IterableDataset)`
+(new class, based on `CandidatePoolIterableDataset` in `sqlite_dataset.py`)
 
 **Behavior**:
 - Uses in-memory `CandidatePool` with candidate scores
@@ -200,14 +258,22 @@ label_class_id = Column(Integer, primary_key=True, autoincrement=True)
 - **Waits for ground truth labels before enrichment begins** (see §3.2.1)
 
 **Implementation approach**:
-- Create `EnrichedInfiniteIterableDataset` as a new `IterableDataset`
-- Each worker owns its own `CandidatePool` (in-memory) + PostgreSQL worker client connection
-- Pool refreshes every N batches from PostgreSQL via manual UNION across shards (not Citus) with `ORDER BY priority` + `LIMIT`
-- `batch_size=None` on wrapping `DataLoader` — dataset yields pre-collated batches
+- `EnrichedInfiniteIterableDataset` subclasses `torch.utils.data.IterableDataset`,
+  following the same pattern as `IterableShardDataset` (§3.1).
+- Each `DataLoader` worker process owns its own `CandidatePool` (in-memory)
+  + PostgreSQL worker-client connection, both created lazily inside
+  `__iter__` (never in `__init__`, for the same fork/spawn-safety reasons
+  as §3.1).
+- Pool refreshes every N batches from PostgreSQL via manual UNION across
+  shards (not Citus) with `ORDER BY train_priority` + `LIMIT`.
+- Wrapped in `DataLoader(dataset, batch_size=None, num_workers=N,
+  multiprocessing_context="spawn", worker_init_fn=...,
+  persistent_workers=True)` — the same `spawn` + `dispose_engine()` +
+  RNG-reseeding requirements from §3.1 apply here.
 
 **Backend**: Production uses PostgreSQL via the worker client (not SQLite). The prototype's `sqlite_dataset.py` pattern informs the design but the implementation queries PostgreSQL directly.
 
-**Sharding note**: The enriched dataloader must query across Citus shards. Since Citus does not support `ORDER BY` + `LIMIT` across shards efficiently, the UNION must be performed manually on PostgreSQL (not through Citus). Each shard is queried separately and results merged client-side.
+**Sharding note**: The enriched dataloader must query across Citus shards. Since Citus does not support `ORDER BY` + `LIMIT` across shards efficiently, the UNION must be performed manually on PostgreSQL (not through Citus). Each shard is queried separately and results merged client-side. **Critical**: The CandidatePool's union operation MUST union across only the shards that were made available to the worker for training (per `compute_shard_assignments()`), not the global list of all shards. The respective database queries must use `worker_client` (not `head_client`) to access those worker-assigned shards.
 
 #### 3.2.1 Label-waiting mechanism
 
@@ -245,13 +311,24 @@ while True:
 
 ### 3.3 Training loop structure
 
+This restructuring replaces the `TODO: Selective training loop` placeholder
+already present in `train_worker` (`patchsorter/dl/training.py` ~lines
+344-353) together with the inline `ShardDataset` iteration below it.
+
 ```
 # Outside cycle loop:
-enriched_loader = DataLoader(EnrichedInfiniteIterableDataset(...), batch_size=None, num_workers=N)
+sequential_loader = DataLoader(IterableShardDataset(...), batch_size=None, num_workers=N,
+                                multiprocessing_context="spawn", worker_init_fn=...)
+enriched_loader = DataLoader(EnrichedInfiniteIterableDataset(...), batch_size=None, num_workers=N,
+                              multiprocessing_context="spawn", worker_init_fn=...)
 enriched_iter = iter(enriched_loader)
 
 # Inside cycle loop:
-for finite_batch in dataloader_sequential:  # stops when exhausted
+for i, finite_batch in enumerate(sequential_loader):  # stops when exhausted
+    if i % POLL_FROZEN_EVERY_N_BATCHES == 0:
+        wait_for_unfreeze(actor)
+        if ray.get(actor.get_termination_signal.remote()):
+            return
     infinite_batch = next(enriched_iter)  # may be None while waiting for labels
     if infinite_batch is not None:
         batch = concat_batches(finite_batch, infinite_batch)
@@ -269,9 +346,10 @@ for finite_batch in dataloader_sequential:  # stops when exhausted
 - Enriched dataloader instantiated outside sequential loop (as specified) to maintain pool state
 - Each training batch = concatenation of sequential + enriched (or sequential-only while waiting for labels)
 - Only sequential part saved to predictions (per spec)
-- Only base (sequential) batch labels update the label weight tracker — `labels[0:nbase_ids]` — matching `start_v4_sqlite.py:395`
+- Only base (sequential) batch labels update the label weight tracker — `labels[0:nbase_ids]` — matching `start_v4_sqlite.py:395`. In production this maps to the existing `raw_labels` tensor (`training.py:457`), which must remain scoped to the sequential-only batch once enrichment is added (see §5.1)
 - Both parts contribute to loss computation and backprop
 - **Label waiting**: Enrichment begins only after `CandidatePool.has_labels()` confirms ground truth labels exist in the database
+- **Freeze/termination polling**: The enriched loop must observe the same freeze/terminate control flow as the sequential loop — call `wait_for_unfreeze(actor)` and check `actor.get_termination_signal.remote()` at the same `POLL_FROZEN_EVERY_N_BATCHES` cadence (already implemented for the sequential path at `training.py:342-353`), so both loops stay in sync with `DLActor` state
 
 ---
 
@@ -362,6 +440,8 @@ The `total_loss` computation in `training.py` must be updated to match the proto
 
 **Note**: `AdaptiveThreshold` in the prototype is already set to CUDA device (not CPU). No device change needed for that class.
 
+**Scoping note**: Production `training.py` already passes only the un-repeated `[B]` sequential-batch labels to `label_tracker.update()` (`raw_labels.to(device)` at `training.py:457`, not the `[V*B]` `labels` tensor) — this matches the desired `labels[0:nbase_ids]` behavior. Once the enriched dataloader (§3.2) is introduced, `raw_labels` must remain scoped to the sequential-only batch, explicitly excluding enriched/candidate-pool patches, to preserve this property.
+
 ### 5.2 `AdaptiveThreshold` — add to losses module
 
 **Action**: Add `AdaptiveThreshold` class from `ps_prototypes_v2/utils.py:1396` to `losses.py`.
@@ -405,16 +485,22 @@ This means `labels.repeat(V)` does NOT align with the flat tensor layout — lab
 
 ## 7. Integration Checklist
 
+**Note**: Line numbers cited below reflect the state of the codebase as of this
+update. Commit `a3c1f6bdaac7db18d596d9454cdb8fc17cfb7926` (merged DL
+actor/freeze-control feature) already shifted several line numbers from the
+original plan draft — re-verify exact locations against HEAD before editing.
+
 ### 7.1 Database changes
-- [ ] Add `priority` column to `patch_model()` in `patchsorter/db/head_client/models.py`
-- [ ] Add partial index on `priority` where `priority > 0` (SQL migration)
+- [ ] Add `train_priority` column to `patch_model()` in `patchsorter/db/head_client/models.py`
+- [ ] Add partial index on `train_priority` where `train_priority > 0` (SQL migration)
 
 ### 7.2 New classes to add to `patchsorter/dl/`
-- [ ] `IterableShardDataset` — sequential shard iterator (place in `datasets.py`, from `ShardDataset` pattern)
-- [ ] `EnrichedInfiniteIterableDataset` — enriched infinite dataloader (place in `datasets.py`, from `CandidatePoolIterableDataset`)
+- [ ] `IterableShardDataset(torch.utils.data.IterableDataset)` — sequential shard iterator; subsumes DB fetch, image decode, and NVIEWS augmentation inside `__iter__` (place in `datasets.py`, replaces `ShardDataset`)
+- [ ] `EnrichedInfiniteIterableDataset(torch.utils.data.IterableDataset)` — enriched infinite dataloader (place in `datasets.py`, from `CandidatePoolIterableDataset`)
 - [ ] `CandidatePool` — in-memory candidate pool with score decay + `has_labels()` method (place in `datasets.py`, from `GTCandidatePool`)
 - [ ] `AdaptiveThreshold` — per-class adaptive threshold (place in `losses.py`, from `utils.py:1396`)
 - [ ] `ScoreWriter` — DB score writer using batched updates (place in `scoring.py`; calls the DB worker client but belongs in the DL layer, not the DB layer)
+- [ ] `SessionManager.dispose_engine()` — new helper in `patchsorter/db/utils.py` wrapping `self.engine.dispose()`, called from each `DataLoader` worker's `worker_init_fn` for spawn-safety (§3.1)
 
 ### 7.3 Loss functions to add/update in `losses.py`
 - [ ] Rename `simclr_loss()` to `swav_loss()` and replace its NT-Xent implementation with the SwAV prototype-assignment computation from `ps_prototypes_v2/utils.py:1191`
@@ -431,14 +517,16 @@ This means `labels.repeat(V)` does NOT align with the flat tensor layout — lab
 - [ ] Update dead class threshold from `1.0/total` to `1e-5`
 
 ### 7.5 Training loop changes in `training.py`
+- [ ] Replace plain-iterable `ShardDataset` with `IterableShardDataset` + `DataLoader` (`batch_size=None`, `num_workers=N`, `multiprocessing_context="spawn"`, `worker_init_fn` calling `dispose_engine()` + RNG reseed) — see §3.1
 - [ ] Restructure `train_worker()` to support dual dataloader pattern
 - [ ] Add `dataloader_sequential` iteration (until exhaustion)
 - [ ] Add `dataloader_enriched` iteration (within sequential loop)
+- [ ] Enriched loop calls `wait_for_unfreeze(actor)` / checks `actor.get_termination_signal.remote()` at the same `POLL_FROZEN_EVERY_N_BATCHES` cadence as the sequential loop (`training.py:342-353`)
 - [ ] GPU-side batch concatenation (preserving v4 pattern)
 - [ ] Handle `None` enrichment batches when labels not yet found (sequential-only training)
 - [ ] Only sequential predictions saved
-- [ ] Only base (sequential) batch labels update tracker — use `labels[0:nbase_ids]`
-- [ ] Priority score update per batch on sequential part only — pass `nbase_ids` (not `len(ids)`) to `compute_weighting_scores()`
+- [ ] Only base (sequential) batch labels update tracker — use `labels[0:nbase_ids]` (production: keep `raw_labels` scoped to the sequential-only batch, see §5.1)
+- [ ] `train_priority` score update per batch on sequential part only — pass `nbase_ids` (not `len(ids)`) to `compute_weighting_scores()`
 - [ ] Update loss computation to match prototype structure exactly: SwAV on embeddings only (remove `simclr_coord_loss` term), separate `PRED_SUP_LAMBDA`/`PRED_PSEUDO_LAMBDA` weights, split `SEMANTIC_LAMBDA`, drop MMD term
 - [ ] Adaptive threshold for pseudo-labels (use `AdaptiveThreshold` instance; guard with `label_tracker.num_updates > NBATCH_PSEUDO_WARMUP`)
 - [ ] Normalize `joint_head.prototypes.data` after each optimizer step
@@ -474,8 +562,8 @@ This means `labels.repeat(V)` does NOT align with the flat tensor layout — lab
 
 ## 8. Open Questions — Resolved
 
-1. **Priority column vs score_timestamp**: ✅ `priority` replaces `score_timestamp`.
-2. **Partial index scope**: ✅ Partial indexes on both `priority` (§2.1) and `label_class_id > 0` (§2.2).
+1. **Priority column vs score_timestamp**: ✅ `train_priority` replaces `score_timestamp`.
+2. **Partial index scope**: ✅ Partial indexes on both `train_priority` (§2.1) and `label_class_id > 0` (§2.2).
 3. **Backend for enriched dataloader**: ✅ Production uses PostgreSQL via worker client (not SQLite). SQLite is prototyping-only.
 4. **SwAV prototypes source**: ✅ Add `prototypes` attribute to `JointHead` model. Copy `swav_loss()` from prototype as-is; keep `SWAV_KMEANS_ITERS` as variable.
 5. **`compute_weighting_scores` integration**: ✅ Computed per-batch on the sequential part of the batch.
@@ -484,13 +572,16 @@ This means `labels.repeat(V)` does NOT align with the flat tensor layout — lab
 8. **`COORD_CONTRASTIVE_LOSS`**: ✅ Set to 0. Matching prototype loss computation is the priority.
 9. **`SIMCLR_EMB_LOSS` rename**: ✅ Rename to `SWAV_EMB_LOSS`.
 10. **`PRED_SUP_LAMBDA` weight**: ✅ Confirmed at 10,000.
-11. **Priority column migration**: ✅ In this development instance, the database will be recreated after the SQLAlchemy schema is updated. No ALTER TABLE migration needed.
-12. **Enriched dataloader sharding**: ✅ Query across shards via manual UNION on PostgreSQL (not Citus), with `ORDER BY priority` + `LIMIT`.
+11. **`train_priority` column migration**: ✅ In this development instance, the database will be recreated after the SQLAlchemy schema is updated. No ALTER TABLE migration needed.
+12. **Enriched dataloader sharding**: ✅ Query across shards via manual UNION on PostgreSQL (not Citus), with `ORDER BY train_priority` + `LIMIT`.
 13. **Loss weight constants**: ✅ All constants from `configs.py` are preserved as-is — they have been tuned in the prototype.
 14. **New constants (`NBATCH_PSEUDO_WARMUP`, `GT_*`, `K_NEIGHBORS`)**: ✅ Values preserved from prototype — carefully tuned and should not be modified.
 15. The tmp_label column included in the prototype was used for simulating a user iteratively adding labels and should not be ported into production.
 16. **Label-waiting before enrichment**: ✅ `CandidatePool.has_labels()` checks DB periodically (every N batches) for `label_class_id > 0`. Until labels exist, enriched dataloader yields `None` and training runs sequential-only. Once labels found, pool loads and enrichment begins normally.
 17. **Unassigned class ID**: ✅ Changed from `1` to `-1`. Sequence starts at 0 so user classes get IDs 0, 1, 2, ... Partial index uses `WHERE label_class_id > 0`. Existing production DBs need a migration script; development instance is unaffected.
+18. **`priority` naming collision**: ✅ Renamed to `train_priority` to avoid clashing with the existing prediction-source `priority` field returned by `PatchStore._paginated_pred_join()` (`patch.py`) and exposed via the API.
+19. **Dataloader implementation pattern**: ✅ Both `IterableShardDataset` and `EnrichedInfiniteIterableDataset` are genuine `torch.utils.data.IterableDataset` subclasses wrapped in `DataLoader` — not plain-iterable consumption like the current `ShardDataset`. See §3.
+20. **Cross-process DB session safety**: ✅ `DataLoader(multiprocessing_context="spawn", worker_init_fn=...)`; `worker_init_fn` calls a new `SessionManager.dispose_engine()` and reseeds NumPy/Python RNGs per worker.
 
 ---
 
@@ -502,7 +593,9 @@ patchsorter/dl/
 ├── augmentations.py          # existing
 ├── losses.py                 # updated: swav_loss (replaces simclr_loss), AdaptiveThreshold, adaptive pseudo, rank_uniform, tracker
 ├── model.py                  # updated: JointHead.prototypes added
-├── training.py               # updated: dual dataloader loop, constants updated to match prototype, MMD/coord-contrastive removed
+├── training.py               # updated: dual dataloader loop (IterableDataset + DataLoader), constants updated to match prototype, MMD/coord-contrastive removed
 ├── datasets.py               # NEW: IterableShardDataset, EnrichedInfiniteIterableDataset, CandidatePool
 └── scoring.py                # NEW: compute_weighting_scores, ScoreWriter
 ```
+
+`patchsorter/db/utils.py` also requires a small update outside this directory: add `SessionManager.dispose_engine()` (§3.1), used by the new `DataLoader` `worker_init_fn`s for spawn-safe DB connections.
