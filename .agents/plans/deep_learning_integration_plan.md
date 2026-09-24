@@ -1,4 +1,12 @@
 # Deep Learning Module Integration Plan
+Summary:
+The purpose of this plan is to update the Deep Learning module to:
+1. Use dataloaders rather than iterable python classes within the ray train loop.
+2. Add a dataloader responsible for enriching the batch with labeled examples.
+3. The enriched dataloader should draw from a candidate pool which gets depleted and refreshed.
+4. The batches drawn from these two dataloaders should be concatenated on GPU.
+5. Update loss functions to match the prototype (SwAV, adaptive pseudo-labels, rank uniform loss).
+6. Change the unassigned label class ID from 1 to -1 and update the label_class autoincrement sequence. 
 
 ## Source Files
 
