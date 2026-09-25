@@ -59,6 +59,15 @@ class SessionManager:
         """Return a raw psycopg connection from the engine pool."""
         return self.engine.raw_connection()
 
+    def dispose_engine(self) -> None:
+        """Dispose of the engine's connection pool.
+
+        Call this from a ``DataLoader`` worker's ``worker_init_fn`` after a
+        ``spawn``-context fork so the worker drops any inherited connection
+        pool state and lazily opens fresh connections on first use.
+        """
+        self.engine.dispose()
+
 # This query finds, for every shard in *table_a*, the shard in *table_b*
 # that holds the same set of hash-key ranges (shardminvalue / shardmaxvalue).
 # It does this by:
