@@ -90,12 +90,19 @@ class DatabaseManager:
 
         Base.metadata.create_all(self.sm.engine)
 
-        # Seed the reserved "unassigned" label class (label_class_id = 1)
+        # Seed the reserved "unassigned" label class (label_class_id = -1).
+        # label_class_id must be set explicitly here — otherwise the insert
+        # falls through to the sequence default, which never produces -1.
         seed_statement = """
-            INSERT INTO label_class (project_id, name, color_code)
-            SELECT NULL, 'unassigned', NULL
-            WHERE NOT EXISTS (SELECT 1 FROM label_class WHERE label_class_id = 1);
+            INSERT INTO label_class (label_class_id, project_id, name, color_code)
+            SELECT -1, NULL, 'unassigned', NULL
+            WHERE NOT EXISTS (SELECT 1 FROM label_class WHERE label_class_id = -1);
         """
+        # User-created classes must autoincrement starting at 0, since -1 is
+        # reserved for the unassigned class above.
+        sequence_init_statement = (
+            "SELECT setval(pg_get_serial_sequence('label_class', 'label_class_id'), 0, false);"
+        )
         distribution_statements = [
             "SELECT create_reference_table('project');",
             "SELECT create_reference_table('image');",
@@ -117,6 +124,7 @@ class DatabaseManager:
                     print(f"Citus extension creation failed: {e}")
 
                 cur.execute(seed_statement)
+                cur.execute(sequence_init_statement)
                 for stmt in distribution_statements:
                     try:
                         cur.execute(stmt)
