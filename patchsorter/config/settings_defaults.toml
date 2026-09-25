@@ -60,6 +60,18 @@ default = "1024"
 type    = "integer"
 description = "Number of patches per batch for deep learning inference"
 
+[settings.dl_num_workers_sequential]
+scope   = "project"
+default = "4"
+type    = "integer"
+description = "Number of DataLoader worker processes for the sequential (exhaustible) shard dataset"
+
+[settings.dl_num_workers_enriched]
+scope   = "project"
+default = "2"
+type    = "integer"
+description = "Number of DataLoader worker processes for the enriched (candidate pool) dataset"
+
 [settings.patch_size]
 scope = "project"
 default = "64"
