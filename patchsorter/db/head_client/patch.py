@@ -31,27 +31,26 @@ class PatchStore:
         self._session = session
         self.table_name = build_table_name(project_id)
 
-    # NOTE: Disabled since only get_local_worker_shard_map is currently relevant.
-    # def get_local_node_shard_map(self, group_id) -> CitusShardMap:
-    #     """Return the subset of Citus shards that reside on the **current node**.
+    def get_local_node_shard_map(self, group_id) -> CitusShardMap:
+        """Return the subset of Citus shards that reside on the **current node**.
 
-    #     Queries both the project's ``patch`` table and its
-    #     ``pred_patch_latest`` table to collect all physical shard IDs that hold
-    #     data for either table and are local to this Citus worker node.
+        Queries both the project's ``patch`` table and its
+        ``pred_patch_latest`` table to collect all physical shard IDs that hold
+        data for either table and are local to this Citus worker node.
 
-    #     Args:
-    #         group_id: Citus ``group_id`` identifying the node (typically the
-    #             node's ``nodeid`` from ``pg_dist_node``).
+        Args:
+            group_id: Citus ``group_id`` identifying the node (typically the
+                node's ``nodeid`` from ``pg_dist_node``).
 
-    #     Returns:
-    #         A :class:`~patchsorter.db.utils.CitusShardMap` mapping
-    #         ``(table_name, shard_id)`` pairs to their distribution column
-    #         values (min/max bounds).
-    #     """
-    #     pred_table_latest = build_pred_table_name(self.project_id, PredPatchSuffix.LATEST)
-    #     query = build_local_node_shard_map_query(self.table_name, pred_table_latest, group_id)
-    #     rows = self._session.execute(query).fetchall()
-    #     return CitusShardMap.from_rows(rows)
+        Returns:
+            A :class:`~patchsorter.db.utils.CitusShardMap` mapping
+            ``(table_name, shard_id)`` pairs to their distribution column
+            values (min/max bounds).
+        """
+        pred_table_latest = build_pred_table_name(self.project_id, PredPatchSuffix.LATEST)
+        query = build_local_node_shard_map_query(self.table_name, pred_table_latest, group_id)
+        rows = self._session.execute(query).fetchall()
+        return CitusShardMap.from_rows(rows)
 
     def get_local_worker_shard_map(self, num_workers: int, worker_rank: int, group_id) -> CitusShardMap:
         """Return the subset of Citus shards that reside on a **specific ray train worker**.
@@ -325,6 +324,30 @@ class PatchStore:
             params,
         )
         return result.rowcount
+
+    def update_train_priority(self, updates: List[Tuple[int, float]]) -> int:
+        """Batch-update the ``train_priority`` column for a set of patches.
+
+        Writes through the logical distributed table, so Citus routes each
+        row to its owning shard via the ``patch_id`` distribution column —
+        callers don't need to know which shard a patch lives on.
+
+        Args:
+            updates: List of ``(patch_id, train_priority)`` tuples.
+
+        Returns:
+            Number of rows updated.
+        """
+        if not updates:
+            return 0
+        self._session.execute(
+            text(
+                f"UPDATE {self.table_name} SET train_priority = :train_priority"
+                f" WHERE patch_id = :patch_id"
+            ),
+            [{"patch_id": pid, "train_priority": priority} for pid, priority in updates],
+        )
+        return len(updates)
 
     def bulk_update_labels_by_cells(
         self,
