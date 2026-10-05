@@ -34,21 +34,6 @@ class DatabaseManager:
                 cur.execute("SELECT * FROM citus_get_active_worker_nodes();")
                 return cur.fetchall()
 
-    def register_project_models(self) -> None:
-        """Query all existing project IDs and register their per-project ORM
-        models with ``Base.metadata``.
-
-        Call this once at application startup so that operations such as
-        ``drop_all_tables`` and ``setup_schema`` are aware of all project-
-        scoped tables (``project{N}_patch``, ``project{N}_pred_patch_*``,
-        ``project{N}_confusion_matrix_l*``) and can resolve FK dependencies
-        correctly without manual CASCADE workarounds.
-        """
-        with self.sm.get_session() as session:
-            project_ids = session.execute(select(Project.project_id)).scalars().all()
-
-        for project_id in project_ids:
-            all_project_models(int(project_id))
 
     def drop_all_tables(self) -> None:
         # check if the project table exists:
@@ -99,10 +84,19 @@ class DatabaseManager:
             WHERE NOT EXISTS (SELECT 1 FROM label_class WHERE label_class_id = -1);
         """
         # User-created classes must autoincrement starting at 0, since -1 is
-        # reserved for the unassigned class above.
-        sequence_init_statement = (
-            "SELECT setval(pg_get_serial_sequence('label_class', 'label_class_id'), 0, false);"
-        )
+        # reserved for the unassigned class above. The sequence's default
+        # MINVALUE is 1, so it must be lowered to -1 (the unassigned class's
+        # id) before setval(..., 0, ...) — otherwise Postgres rejects 0 as
+        # out of range.
+        sequence_init_statement = """
+            DO $$
+            DECLARE
+                seq_name text := pg_get_serial_sequence('label_class', 'label_class_id');
+            BEGIN
+                EXECUTE format('ALTER SEQUENCE %s MINVALUE 0', seq_name);
+                PERFORM setval(seq_name, 0, false);
+            END $$;
+        """
         distribution_statements = [
             "SELECT create_reference_table('project');",
             "SELECT create_reference_table('image');",
