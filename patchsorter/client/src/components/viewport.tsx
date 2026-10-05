@@ -409,7 +409,8 @@ export default function Viewport({
             mapDivRef.current, WORLD_SIZE, WORLD_SIZE, WORLD_SIZE / 2, WORLD_SIZE / 2
         )
         params.map.zoom = 0
-        params.map.minZoom = 0
+        params.map.min = -2
+        params.map.clampZoom = false
         params.map.max = maxOsmZoom
         params.map.center = { x: WORLD_SIZE / 2, y: WORLD_SIZE / 2 }
         paramsRef.current = params
