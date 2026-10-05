@@ -100,6 +100,7 @@ def start_processing_endpoint(project_id: int) -> None:
     try:
         start_processing(project_id)
     except Exception as e:
+        log.exception("Failed to start DL processing for project %d", project_id)
         raise HTTPException(status_code=500, detail=str(e))
 
 
