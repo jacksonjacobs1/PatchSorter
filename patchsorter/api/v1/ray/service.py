@@ -4,9 +4,11 @@ import time
 import ray
 from ray.exceptions import ActorDiedError
 
+from patchsorter.config.constants import SettingScope
 from patchsorter.db import head_client
 from patchsorter.db.head_client.label_class import LabelClassStore
 from patchsorter.db.head_client.settings import SettingsStore
+from patchsorter.db.head_client.settings import _parse_setting_value
 from patchsorter.dl.training import DLActor, dl_actor_name
 
 from .models import DLActorState
@@ -107,6 +109,7 @@ def set_freeze(project_id: int, frozen: bool) -> DLActorState:
 def _get_project_config(project_id: int):
     head_sm = head_client.get_client()
     with head_sm.get_session() as session:
-        app_config = SettingsStore(session).get_all_as_dict(project_id)
+        raw = SettingsStore(session).get_all_raw(project_id, scope=SettingScope.PROJECT)
+        app_config = {k: _parse_setting_value(v.value, v.type) for k, v in raw.items()}
         label_classes = LabelClassStore(session).list_by_project(project_id)
     return app_config, label_classes
