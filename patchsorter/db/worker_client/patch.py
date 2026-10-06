@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Generator, List
-from sqlalchemy import text, table, column, select, func
+from typing import Any, Dict, Generator, List, Tuple
+from sqlalchemy import text, table, column, select, func, exists, union_all, case
 from sqlalchemy.orm import Session
 
-from patchsorter.db.head_client.models import build_table_name, build_pred_table_name
+from patchsorter.db.head_client.models import build_table_name, build_pred_table_name, patch_model
 from patchsorter.config.constants import PredPatchSuffix
 
 
@@ -178,3 +178,77 @@ class WorkerPatchStore:
                 for row in records:
                     copy.write_row(row)
         return len(records)
+
+    # ------------------------------------------------------------------ #
+    # Candidate-pool enrichment support                                    #
+    # ------------------------------------------------------------------ #
+
+    def fetch_candidate_pool_from_local_shards(
+        self,
+        shard_ids: List[int],
+        limit: int,
+        decay: float,
+        init_score: float,
+    ) -> List[Dict[str, Any]]:
+        """Fetch the top-``limit`` labeled patches across all given shards, ranked by
+        an exponentially-decayed rarity score computed in SQL.
+
+        ``train_priority`` encodes ``times_seen.rarity_score`` (the integer part is
+        the training iteration the patch was last scored at; the fractional part
+        is its rarity). This unions every shard's labeled rows in one round trip,
+        then ranks by ``rarity * max(0.0001, exp(-decay * (max_times_seen -
+        times_seen)))`` — recently-scored rows are weighted near their raw rarity,
+        stale ones decay towards zero. Rows never yet scored (``train_priority IS
+        NULL``) get *init_score* so they rank at the top, ahead of decayed rows.
+
+        ``max_times_seen`` is computed once via a window function over the unioned
+        rows (single scan) rather than the prototype's repeated correlated subquery.
+
+        Args:
+            shard_ids: Numeric Citus shard IDs to union together (typically every
+                shard local to this Postgres node).
+            limit: Maximum number of candidate rows to return.
+            decay: Exponential decay rate applied to staleness (``GT_SCORE_DECAY``).
+            init_score: Score assigned to never-yet-scored rows (``GT_SCORE_INIT``).
+
+        Returns:
+            List of dicts containing ``patch_id``, ``patch_uid``,
+            ``label_class_id``, ``image_id``, ``downsample_factor``,
+            ``centroid_x``, ``centroid_y``, ``patch_image``, ``train_priority``,
+            and ``computed_sorting_score``. Empty list when *shard_ids* is empty.
+        """
+        if not shard_ids:
+            return []
+
+        # Column names come from the ORM model (cached, no DB round trip) so this
+        # stays in sync with the schema instead of hand-duplicating column names.
+        # ``polygon`` (Geometry) is excluded — not needed for training.
+        col_names = [c.name for c in patch_model(self.project_id).__table__.columns if c.name != "polygon"]
+
+        selects = []
+        for shard_id in shard_ids:
+            shard_table = table(build_table_name(self.project_id, shard_id), *(column(name) for name in col_names))
+            selects.append(
+                select(*shard_table.c, func.floor(shard_table.c.train_priority).label("times_seen"))
+                .where(shard_table.c.label_class_id > -1)
+            )
+        combined = union_all(*selects).cte("combined")
+
+        scored = select(
+            *combined.c,
+            func.max(combined.c.times_seen).over().label("max_times_seen"),
+        ).cte("scored")
+
+        computed_score = case(
+            (scored.c.train_priority.is_(None), init_score),
+            else_=(scored.c.train_priority - scored.c.times_seen)
+            * func.greatest(0.0001, func.exp(-decay * (scored.c.max_times_seen - scored.c.times_seen))),
+        ).label("computed_sorting_score")
+
+        stmt = (
+            select(*scored.c, computed_score)
+            .order_by(computed_score.desc())
+            .limit(limit)
+        )
+        rows = self._session.execute(stmt).mappings().fetchall()
+        return [dict(r) for r in rows]
