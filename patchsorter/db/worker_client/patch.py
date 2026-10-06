@@ -6,7 +6,7 @@ from sqlalchemy import text, table, column, select, func, exists, union_all, cas
 from sqlalchemy.orm import Session
 
 from patchsorter.db.head_client.models import build_table_name, build_pred_table_name, patch_model
-from patchsorter.config.constants import PredPatchSuffix
+from patchsorter.config.constants import PredPatchSuffix, UNASSIGNED_CLASS_ID
 
 
 class WorkerPatchStore:
@@ -230,7 +230,7 @@ class WorkerPatchStore:
             shard_table = table(build_table_name(self.project_id, shard_id), *(column(name) for name in col_names))
             selects.append(
                 select(*shard_table.c, func.floor(shard_table.c.train_priority).label("times_seen"))
-                .where(shard_table.c.label_class_id > -1)
+                .where(shard_table.c.label_class_id > UNASSIGNED_CLASS_ID)
             )
         combined = union_all(*selects).cte("combined")
 
