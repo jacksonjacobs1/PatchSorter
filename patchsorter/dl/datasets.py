@@ -214,15 +214,15 @@ class IterableShardDataset(IterableDataset):
 
 
 class CandidatePool:
-    """In-memory pool of ground-truth-labeled patches, drawn from PostgreSQL/Citus.
+    """In-memory pool of ground-truth-labeled patches, drawn from a local PostgreSQL instance.
 
-    Each ``DataLoader`` worker owns its own instance (and its own DB
+    Each enriched ``DataLoader`` worker owns its own instance (and its own DB
     connection + RNG). The pool is refreshed from the DB periodically and
     supports weighted (rarity-biased), without-replacement draws.
 
     Sharding note: candidates are unioned manually across only the shards
     assigned to this worker (``assigned_shards``, via ``worker_client`` —
-    Citus does not support efficient ``ORDER BY`` + ``LIMIT`` across shards).
+    Citus does not support efficient ``ORDER BY`` + ``LIMIT`` across specific shards).
 
     Args:
         project_id: Project whose patch shards are read.
@@ -253,7 +253,7 @@ class CandidatePool:
         """Reload the top-scored labeled candidates from every shard on this node.
 
         Issues a single UNION-ALL query across all locally-available shards
-        (Citus does not support ``ORDER BY`` + ``LIMIT`` efficiently across
+        (Citus does not support ``ORDER BY`` + ``LIMIT`` efficiently across specific
         shards) with the rarity decay computed SQL-side.
         """
         with self._worker_sm.get_session() as session:
