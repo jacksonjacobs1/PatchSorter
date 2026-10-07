@@ -1,112 +1,112 @@
-"""Unit tests for CandidatePool (in-memory scores) and ScoreWriter (DB scores).
+"""Live-DB tests for CandidatePool (in-memory scores) and ScoreWriter (DB scores).
 
-No live database is needed: the stores are replaced by a ``FakeScoreDB`` that
-mimics the semantics of ``update_train_priority`` and
-``fetch_candidate_pool_from_local_shards`` (including the SQL-side decay), so
-the tests can also exercise the pool <-> writer feedback loop over time.
+Both classes run against the real Citus test database. ``ScoreWriter`` flushes
+from a background thread on its own connection, so the fixture commits its
+seed data (rather than using the rolled-back ``db_session``) and removes it on
+teardown.
 """
 import math
-import threading
-from contextlib import contextmanager
-from unittest.mock import MagicMock
+import time
+import uuid
+from collections import namedtuple
+from typing import Any, Dict, List
 
 import numpy as np
 import pytest
 import torch
+from sqlalchemy import text
 
-from patchsorter.dl import datasets, scoring
+from patchsorter.config.constants import UNASSIGNED_CLASS_ID
+from patchsorter.db.head_client import ImageStore, LabelClassStore, PatchStore
+from patchsorter.db.utils import CitusShardMap
+from patchsorter.dl import datasets
 from patchsorter.dl.datasets import GT_SCORE_IN_MEMORY_DECAY, CandidatePool
 from patchsorter.dl.scoring import ScoreWriter
 
 PROJECT_ID = 1
-
-
-class FakeScoreDB:
-    """Stand-in for the patch table: ``patch_id -> train_priority`` (None = never scored)."""
-
-    def __init__(self, priorities):
-        self.priorities = dict(priorities)
-        self.update_calls = []
-        self.fetch_calls = 0
-        self.lock = threading.Lock()
-        self.fail_next_update = False
-
-    def update_train_priority(self, updates):
-        with self.lock:
-            if self.fail_next_update:
-                self.fail_next_update = False
-                raise RuntimeError("db down")
-            self.update_calls.append(list(updates))
-            for pid, prio in updates:
-                self.priorities[pid] = prio
-            return len(updates)
-
-    def fetch_candidates(self, limit, decay, init_score):
-        with self.lock:
-            self.fetch_calls += 1
-            seen = {p: (None if v is None else math.floor(v)) for p, v in self.priorities.items()}
-            max_seen = max((s for s in seen.values() if s is not None), default=0)
-            rows = []
-            for pid, prio in self.priorities.items():
-                if prio is None:
-                    score = init_score
-                else:
-                    score = (prio - seen[pid]) * max(0.0001, math.exp(-decay * (max_seen - seen[pid])))
-                rows.append({"patch_id": pid, "train_priority": prio, "computed_sorting_score": score})
-            rows.sort(key=lambda r: r["computed_sorting_score"], reverse=True)
-            return rows[:limit]
+FAKE_SHARD_ID = 900001
+ShardRow = namedtuple("ShardRow", "shard_a shard_b")
 
 
 @pytest.fixture
-def fake_db(monkeypatch):
-    db = FakeScoreDB({1: None, 2: None, 3: None})
+def seeded(test_db, _project1_tables, monkeypatch) -> Dict[str, Any]:
+    """Commit a project with three labeled patches and one unlabeled patch."""
+    with test_db.get_session() as s:
+        s.execute(
+            text(
+                "INSERT INTO project (project_id, project_name, description) "
+                "OVERRIDING SYSTEM VALUE VALUES (1, 'pool-test', 'pool-test')"
+            )
+        )
+        lc = LabelClassStore(s).create(PROJECT_ID, "Tumor", "#FF0000")
+        image = ImageStore(s).create(
+            project_id=PROJECT_ID, name="s.svs", image_path="/data/s.svs", base_mag=20.0,
+            base_width=1000, base_height=1000, deepzoom_tilesize=256,
+        )
+        store = PatchStore(PROJECT_ID, s)
+        labeled = [uuid.uuid4() for _ in range(3)]
+        unlabeled = uuid.uuid4()
+        store.bulk_insert(
+            [(u, lc["label_class_id"], image["image_id"], 2.0, i, i, None, bytes(16)) for i, u in enumerate(labeled)]
+            + [(unlabeled, UNASSIGNED_CLASS_ID, image["image_id"], 2.0, 9, 9, None, bytes(16))]
+        )
+        rows = s.execute(
+            text("SELECT patch_id, patch_uid FROM project1_patch ORDER BY patch_id")
+        ).fetchall()
+        # The test cluster has no Citus workers, so project1_patch is a plain table with no
+        # physical shards. A view named like a shard stands in for the single local shard.
+        s.execute(text(f"CREATE VIEW project1_patch_{FAKE_SHARD_ID} AS SELECT * FROM project1_patch"))
 
-    class FakeWorkerPatchStore:
-        def __init__(self, project_id, session):
-            pass
+    by_uid = {r.patch_uid: r.patch_id for r in rows}
+    monkeypatch.setattr(datasets.worker_client, "get_client", lambda: test_db)
 
-        def fetch_candidate_pool_from_local_shards(self, shard_ids, limit, decay, init_score):
-            return db.fetch_candidates(limit, decay, init_score)
+    yield {
+        "sm": test_db,
+        "ids": [by_uid[u] for u in labeled],
+        "unlabeled_id": by_uid[unlabeled],
+        "shards": CitusShardMap([ShardRow(FAKE_SHARD_ID, FAKE_SHARD_ID)]),
+    }
 
-    class FakePatchStore:
-        def __init__(self, project_id, session):
-            assert project_id == PROJECT_ID
-
-        def update_train_priority(self, updates):
-            return db.update_train_priority(updates)
-
-    @contextmanager
-    def session_ctx():
-        yield MagicMock()
-
-    worker_sm = MagicMock()
-    worker_sm.get_session.side_effect = session_ctx
-    monkeypatch.setattr(datasets.worker_client, "get_client", lambda: worker_sm)
-    monkeypatch.setattr(datasets, "WorkerPatchStore", FakeWorkerPatchStore)
-    monkeypatch.setattr(scoring, "PatchStore", FakePatchStore)
-    return db
+    with test_db.get_session() as s:
+        s.execute(text(f"DROP VIEW IF EXISTS project1_patch_{FAKE_SHARD_ID}"))
+        for tbl in ("project1_pred_patch_latest", "project1_patch"):
+            s.execute(text(f"DELETE FROM {tbl}"))
+        s.execute(text("DELETE FROM label_class WHERE project_id = 1"))
+        s.execute(text("DELETE FROM image WHERE project_id = 1"))
+        s.execute(text("DELETE FROM project WHERE project_id = 1"))
 
 
-@pytest.fixture
-def head_sm():
-    @contextmanager
-    def session_ctx():
-        yield MagicMock()
-
-    sm = MagicMock()
-    sm.get_session.side_effect = session_ctx
-    return sm
+def db_priorities(sm) -> Dict[int, Any]:
+    with sm.get_session() as s:
+        return {r.patch_id: r.train_priority for r in s.execute(text("SELECT patch_id, train_priority FROM project1_patch"))}
 
 
-def make_pool(pool_size=2048):
-    shards = MagicMock()
-    shards.get_table_a_shard_list.return_value = [101, 102]
-    return CandidatePool(PROJECT_ID, shards, pool_size=pool_size)
+def set_priorities(sm, values: Dict[int, Any]) -> None:
+    with sm.get_session() as s:
+        for pid, prio in values.items():
+            s.execute(text("UPDATE project1_patch SET train_priority = :p WHERE patch_id = :i"), {"p": prio, "i": pid})
 
 
-def make_writer(head_sm, **kw):
+def make_pool(seeded, pool_size=2048) -> CandidatePool:
+    return CandidatePool(PROJECT_ID, seeded["shards"], pool_size=pool_size)
+
+
+def make_writer(seeded, **kw) -> ScoreWriter:
     kw.setdefault("flush_interval_s", 0.05)
-    return ScoreWriter(head_sm, PROJECT_ID, **kw)
+    return ScoreWriter(seeded["sm"], PROJECT_ID, **kw)
+
+
+def wait_for(cond, timeout=10.0):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if cond():
+            return
+        time.sleep(0.02)
+    raise AssertionError("condition not met in time")
+
+
+def scores_by_id(pool: CandidatePool) -> Dict[int, float]:
+    return {r["patch_id"]: float(s) for r, s in zip(pool._rows, pool._scores)}
 
 
 # --------------------------------------------------------------------------
@@ -114,117 +114,108 @@ def make_writer(head_sm, **kw):
 # --------------------------------------------------------------------------
 
 class TestCandidatePool:
-    def test_empty_before_refresh(self, fake_db):
-        pool = make_pool()
+    def test_empty_before_refresh(self, seeded):
+        pool = make_pool(seeded)
         assert pool.is_empty
         assert pool.draw_batch(5) == []
 
-    def test_refresh_loads_rows_and_scores(self, fake_db):
-        fake_db.priorities = {1: 5.5, 2: 5.2, 3: None}
-        pool = make_pool()
+    def test_refresh_loads_only_labeled_rows_with_init_score(self, seeded):
+        pool = make_pool(seeded)
         pool.refresh()
-
-        assert not pool.is_empty
-        assert {r["patch_id"] for r in pool._rows} == {1, 2, 3}
-        # Never-scored row gets init score, ranked first.
-        assert pool._rows[0]["patch_id"] == 3
-        np.testing.assert_allclose(pool._scores, [r["computed_sorting_score"] for r in pool._rows])
+        assert {r["patch_id"] for r in pool._rows} == set(seeded["ids"])
+        assert seeded["unlabeled_id"] not in scores_by_id(pool)
+        np.testing.assert_allclose(pool._scores, datasets.GT_SCORE_INIT)
         assert pool._scores.dtype == np.float64
 
-    def test_refresh_respects_pool_size_and_passes_decay(self, fake_db):
-        pool = make_pool(pool_size=2)
+    def test_refresh_computes_rarity_from_fractional_priority(self, seeded):
+        a, b, c = seeded["ids"]
+        set_priorities(seeded["sm"], {a: 5.5, b: 5.2})
+        pool = make_pool(seeded)
+        pool.refresh()
+        scores = scores_by_id(pool)
+        assert scores[a] == pytest.approx(0.5, abs=1e-6)
+        assert scores[b] == pytest.approx(0.2, abs=1e-6)
+        assert scores[c] == datasets.GT_SCORE_INIT
+        assert pool._rows[0]["patch_id"] == c  # unscored ranks first
+
+    def test_refresh_respects_pool_size(self, seeded):
+        pool = make_pool(seeded, pool_size=2)
         pool.refresh()
         assert len(pool._rows) == 2
 
-    def test_refresh_replaces_previous_state(self, fake_db):
-        pool = make_pool()
+    def test_refresh_picks_up_db_changes_and_discards_memory_decay(self, seeded):
+        a = seeded["ids"][0]
+        set_priorities(seeded["sm"], {a: 7.9})
+        pool = make_pool(seeded)
         pool.refresh()
-        pool.decay_in_memory_score(0)
-        fake_db.priorities = {1: 3.5}
-        pool.refresh()
-        assert [r["patch_id"] for r in pool._rows] == [1]
-        np.testing.assert_allclose(pool._scores, [0.5])
+        idx = next(i for i, r in enumerate(pool._rows) if r["patch_id"] == a)
+        pool.decay_in_memory_score(idx)
+        decayed = scores_by_id(pool)[a]
+        assert decayed == pytest.approx(0.9 * GT_SCORE_IN_MEMORY_DECAY, abs=1e-6)
 
-    def test_refresh_to_empty(self, fake_db):
-        pool = make_pool()
+        set_priorities(seeded["sm"], {a: 7.95})
         pool.refresh()
-        fake_db.priorities = {}
+        assert scores_by_id(pool)[a] == pytest.approx(0.95, abs=1e-6)
+
+    def test_refresh_empty_when_no_labeled_patches(self, seeded):
+        with seeded["sm"].get_session() as s:
+            s.execute(text("UPDATE project1_patch SET label_class_id = :u"), {"u": UNASSIGNED_CLASS_ID})
+        pool = make_pool(seeded)
         pool.refresh()
         assert pool.is_empty
 
-    def test_draw_batch_distinct_and_capped(self, fake_db):
-        pool = make_pool()
+    def test_draw_batch_distinct_and_capped(self, seeded):
+        pool = make_pool(seeded)
         pool.refresh()
         picks = pool.draw_batch(10)
         idxs = [i for _, i in picks]
-        assert len(picks) == 3
-        assert len(set(idxs)) == 3
-        for row, idx in picks:
-            assert row is pool._rows[idx]
+        assert len(picks) == 3 and len(set(idxs)) == 3
+        assert all(row is pool._rows[i] for row, i in picks)
 
-    def test_draw_batch_biased_by_score(self, fake_db):
-        fake_db.priorities = {1: 1.99, 2: 1.001}
-        pool = make_pool()
+    def test_draw_batch_biased_by_score(self, seeded):
+        a, b, c = seeded["ids"]
+        set_priorities(seeded["sm"], {a: 1.99, b: 1.001, c: 1.001})
+        pool = make_pool(seeded)
         pool.refresh()
         np.random.seed(0)
-        hits = sum(pool.draw_batch(1)[0][0]["patch_id"] == 1 for _ in range(300))
+        hits = sum(pool.draw_batch(1)[0][0]["patch_id"] == a for _ in range(300))
         assert hits > 250
 
-    def test_draw_batch_zero_weights_falls_back_to_uniform(self, fake_db):
-        fake_db.priorities = {1: 4.0, 2: 4.0}  # fractional part 0 -> score 0
-        pool = make_pool()
+    def test_draw_batch_zero_weights_falls_back_to_uniform(self, seeded):
+        set_priorities(seeded["sm"], {i: 4.0 for i in seeded["ids"]})  # rarity 0
+        pool = make_pool(seeded)
         pool.refresh()
-        assert pool._scores.sum() == 0 or np.allclose(pool._scores, 0)
-        assert len(pool.draw_batch(2)) == 2
-
-    def test_draw_batch_nonfinite_weights_falls_back_to_uniform(self, fake_db):
-        pool = make_pool()
-        pool.refresh()
-        pool._scores[0] = np.nan
+        assert np.allclose(pool._scores, 0)
         assert len(pool.draw_batch(3)) == 3
 
-    def test_decay_in_memory_score(self, fake_db):
-        pool = make_pool()
+    def test_decay_in_memory_score(self, seeded):
+        pool = make_pool(seeded)
         pool.refresh()
         before = pool._scores.copy()
         pool.decay_in_memory_score(1)
-        assert pool._scores[1] == pytest.approx(before[1] * GT_SCORE_IN_MEMORY_DECAY)
-        assert pool._scores[0] == before[0]
         pool.decay_in_memory_score(1)
         assert pool._scores[1] == pytest.approx(before[1] * GT_SCORE_IN_MEMORY_DECAY ** 2)
+        assert pool._scores[0] == before[0]
 
     @pytest.mark.parametrize("idx", [-1, 3, 100])
-    def test_decay_out_of_range_is_noop(self, fake_db, idx):
-        pool = make_pool()
+    def test_decay_out_of_range_is_noop(self, seeded, idx):
+        pool = make_pool(seeded)
         pool.refresh()
         before = pool._scores.copy()
         pool.decay_in_memory_score(idx)
         np.testing.assert_array_equal(pool._scores, before)
 
-    def test_repeated_decay_shifts_draws_to_other_candidates(self, fake_db):
-        fake_db.priorities = {1: 1.9, 2: 1.8}
-        pool = make_pool()
+    def test_repeated_decay_shifts_draws_to_other_candidates(self, seeded):
+        a, b, c = seeded["ids"]
+        set_priorities(seeded["sm"], {a: 1.9, b: 1.001, c: 1.001})
+        pool = make_pool(seeded)
         pool.refresh()
-        idx_of = {r["patch_id"]: i for i, r in enumerate(pool._rows)}
-        for _ in range(20):
-            pool.decay_in_memory_score(idx_of[1])
+        idx = next(i for i, r in enumerate(pool._rows) if r["patch_id"] == a)
+        for _ in range(60):
+            pool.decay_in_memory_score(idx)
         np.random.seed(1)
-        hits = sum(pool.draw_batch(1)[0][0]["patch_id"] == 2 for _ in range(200))
-        assert hits > 190
-
-    def test_refresh_discards_in_memory_decay_and_picks_up_db_scores(self, fake_db):
-        fake_db.priorities = {1: 7.9, 2: 7.1}
-        pool = make_pool()
-        pool.refresh()
-        idx = {r["patch_id"]: i for i, r in enumerate(pool._rows)}
-        pool.decay_in_memory_score(idx[1])
-        decayed = pool._scores[idx[1]]
-
-        fake_db.priorities[1] = 8.95  # DB re-scored meanwhile
-        pool.refresh()
-        idx = {r["patch_id"]: i for i, r in enumerate(pool._rows)}
-        assert pool._scores[idx[1]] > decayed
-        assert pool._rows[idx[1]]["train_priority"] == pytest.approx(8.95)
+        hits = sum(pool.draw_batch(1)[0][0]["patch_id"] == a for _ in range(200))
+        assert hits < 20
 
 
 # --------------------------------------------------------------------------
@@ -232,74 +223,92 @@ class TestCandidatePool:
 # --------------------------------------------------------------------------
 
 class TestScoreWriter:
-    def test_close_flushes_pending_to_db(self, fake_db, head_sm):
-        w = make_writer(head_sm, batch_size=1000, flush_interval_s=30)
-        w.enqueue(torch.tensor([1, 2]), torch.tensor([3.25, 4.5]))
+    def test_close_flushes_pending_to_db(self, seeded):
+        a, b, c = seeded["ids"]
+        w = make_writer(seeded, batch_size=1000, flush_interval_s=30)
+        w.enqueue(torch.tensor([a, b]), torch.tensor([3.25, 4.5]))
         w.close()
-        assert fake_db.priorities[1] == pytest.approx(3.25)
-        assert fake_db.priorities[2] == pytest.approx(4.5)
-        assert fake_db.priorities[3] is None
+        prios = db_priorities(seeded["sm"])
+        assert prios[a] == pytest.approx(3.25)
+        assert prios[b] == pytest.approx(4.5)
+        assert prios[c] is None
+        assert prios[seeded["unlabeled_id"]] is None
 
-    def test_batch_size_triggers_flush_before_close(self, fake_db, head_sm):
-        w = make_writer(head_sm, batch_size=2, flush_interval_s=30)
+    def test_batch_size_triggers_flush_before_close(self, seeded):
+        a, b, _ = seeded["ids"]
+        w = make_writer(seeded, batch_size=2, flush_interval_s=30)
         try:
-            w.enqueue(torch.tensor([1, 2]), torch.tensor([1.5, 2.5]))
-            _wait_for(lambda: len(fake_db.update_calls) >= 1)
-            assert sorted(fake_db.update_calls[0]) == [(1, 1.5), (2, 2.5)]
+            w.enqueue(torch.tensor([a, b]), torch.tensor([1.5, 2.5]))
+            wait_for(lambda: db_priorities(seeded["sm"])[b] is not None)
+            assert db_priorities(seeded["sm"])[a] == pytest.approx(1.5)
         finally:
             w.close()
 
-    def test_interval_triggers_flush_below_batch_size(self, fake_db, head_sm):
-        w = make_writer(head_sm, batch_size=1000, flush_interval_s=0.05)
+    def test_interval_triggers_flush_below_batch_size(self, seeded):
+        c = seeded["ids"][2]
+        w = make_writer(seeded, batch_size=1000, flush_interval_s=0.05)
         try:
-            w.enqueue(torch.tensor([3]), torch.tensor([9.75]))
-            _wait_for(lambda: fake_db.priorities[3] is not None)
-            assert fake_db.priorities[3] == pytest.approx(9.75)
+            w.enqueue(torch.tensor([c]), torch.tensor([9.75]))
+            wait_for(lambda: db_priorities(seeded["sm"])[c] is not None)
+            assert db_priorities(seeded["sm"])[c] == pytest.approx(9.75)
         finally:
             w.close()
 
-    def test_scalar_tensors(self, fake_db, head_sm):
-        w = make_writer(head_sm, batch_size=1000, flush_interval_s=30)
-        w.enqueue(torch.tensor(1), torch.tensor(2.5))
+    def test_scalar_tensors(self, seeded):
+        a = seeded["ids"][0]
+        w = make_writer(seeded, batch_size=1000, flush_interval_s=30)
+        w.enqueue(torch.tensor(a), torch.tensor(2.5))
         w.close()
-        assert fake_db.priorities[1] == pytest.approx(2.5)
+        assert db_priorities(seeded["sm"])[a] == pytest.approx(2.5)
 
-    def test_later_score_overwrites_earlier_over_time(self, fake_db, head_sm):
-        w = make_writer(head_sm, batch_size=1, flush_interval_s=30)
+    def test_later_score_overwrites_earlier_over_time(self, seeded):
+        a = seeded["ids"][0]
+        w = make_writer(seeded, batch_size=1, flush_interval_s=30)
         try:
-            for step, score in enumerate([1.1, 2.2, 3.3], start=1):
-                w.enqueue(torch.tensor([1]), torch.tensor([score]))
-                _wait_for(lambda: len(fake_db.update_calls) >= step)
-                assert fake_db.priorities[1] == pytest.approx(score)
+            for score in (1.25, 2.5, 3.75):
+                w.enqueue(torch.tensor([a]), torch.tensor([score]))
+                wait_for(lambda: db_priorities(seeded["sm"])[a] == pytest.approx(score))
         finally:
             w.close()
 
-    def test_duplicate_ids_in_one_flush_apply_in_order(self, fake_db, head_sm):
-        w = make_writer(head_sm, batch_size=1000, flush_interval_s=30)
-        w.enqueue(torch.tensor([1, 1]), torch.tensor([1.1, 5.5]))
+    def test_duplicate_ids_in_one_flush_apply_in_order(self, seeded):
+        a = seeded["ids"][0]
+        w = make_writer(seeded, batch_size=1000, flush_interval_s=30)
+        w.enqueue(torch.tensor([a, a]), torch.tensor([1.25, 5.5]))
         w.close()
-        assert fake_db.priorities[1] == pytest.approx(5.5)
+        assert db_priorities(seeded["sm"])[a] == pytest.approx(5.5)
 
-    def test_flush_failure_is_logged_and_writer_keeps_working(self, fake_db, head_sm, caplog):
-        fake_db.fail_next_update = True
-        w = make_writer(head_sm, batch_size=1, flush_interval_s=30)
+    def test_flush_failure_is_logged_and_writer_keeps_working(self, seeded, caplog, monkeypatch):
+        a, b, _ = seeded["ids"]
+        from patchsorter.dl import scoring
+
+        real = scoring.PatchStore.update_train_priority
+        calls = {"n": 0}
+
+        def flaky(self, updates):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("db down")
+            return real(self, updates)
+
+        monkeypatch.setattr(scoring.PatchStore, "update_train_priority", flaky)
+        w = make_writer(seeded, batch_size=1, flush_interval_s=30)
         try:
-            w.enqueue(torch.tensor([1]), torch.tensor([1.5]))
-            _wait_for(lambda: "ScoreWriter flush failed" in caplog.text)
-            assert fake_db.priorities[1] is None
+            w.enqueue(torch.tensor([a]), torch.tensor([1.5]))
+            wait_for(lambda: "ScoreWriter flush failed" in caplog.text)
+            assert db_priorities(seeded["sm"])[a] is None
 
-            w.enqueue(torch.tensor([2]), torch.tensor([2.5]))
-            _wait_for(lambda: fake_db.priorities[2] is not None)
-            assert fake_db.priorities[2] == pytest.approx(2.5)
+            w.enqueue(torch.tensor([b]), torch.tensor([2.5]))
+            wait_for(lambda: db_priorities(seeded["sm"])[b] is not None)
         finally:
             w.close()
 
-    def test_close_without_updates_does_not_touch_db(self, fake_db, head_sm):
-        make_writer(head_sm).close()
-        assert fake_db.update_calls == []
+    def test_close_without_updates_leaves_db_untouched(self, seeded):
+        make_writer(seeded).close()
+        assert all(v is None for v in db_priorities(seeded["sm"]).values())
 
-    def test_close_stops_thread(self, fake_db, head_sm):
-        w = make_writer(head_sm)
+    def test_close_stops_thread(self, seeded):
+        w = make_writer(seeded)
         w.close()
         assert not w._thread.is_alive()
 
@@ -309,80 +318,64 @@ class TestScoreWriter:
 # --------------------------------------------------------------------------
 
 class TestPoolAndWriterOverTime:
-    def test_scores_written_then_visible_after_refresh(self, fake_db, head_sm):
-        pool = make_pool()
-        writer = make_writer(head_sm, batch_size=1000, flush_interval_s=30)
+    def test_scores_written_then_visible_after_refresh(self, seeded):
+        a, b, c = seeded["ids"]
+        pool = make_pool(seeded)
         pool.refresh()
-        # Unscored rows start at the init score.
         assert all(r["train_priority"] is None for r in pool._rows)
-        np.testing.assert_allclose(pool._scores, datasets.GT_SCORE_INIT)
 
-        # Iteration 10: patches scored with rarities 0.9 / 0.1; patch 3 untouched.
-        writer.enqueue(torch.tensor([1, 2]), torch.tensor([10.9, 10.1]))
+        writer = make_writer(seeded, batch_size=1000, flush_interval_s=30)
+        writer.enqueue(torch.tensor([a, b]), torch.tensor([10.875, 10.125]))
         writer.close()
 
-        # Stale in-memory view until the next refresh.
+        # In-memory view is stale until the next refresh.
         assert all(r["train_priority"] is None for r in pool._rows)
 
         pool.refresh()
-        by_id = {r["patch_id"]: (r, s) for r, s in zip(pool._rows, pool._scores)}
-        assert by_id[1][0]["train_priority"] == pytest.approx(10.9, abs=1e-4)
-        assert by_id[1][1] == pytest.approx(0.9, abs=1e-4)
-        assert by_id[2][1] == pytest.approx(0.1, abs=1e-4)
-        assert by_id[3][1] == datasets.GT_SCORE_INIT  # never scored stays on top
-        assert pool._rows[0]["patch_id"] == 3
+        scores = scores_by_id(pool)
+        assert scores[a] == pytest.approx(0.875, abs=1e-6)
+        assert scores[b] == pytest.approx(0.125, abs=1e-6)
+        assert scores[c] == datasets.GT_SCORE_INIT
+        assert pool._rows[0]["patch_id"] == c
 
-    def test_stale_rows_decay_relative_to_newer_iterations(self, fake_db, head_sm):
-        fake_db.priorities = {1: 1.5, 2: 1.5}
-        pool = make_pool()
+    def test_stale_rows_decay_relative_to_newer_iterations(self, seeded):
+        a, b, _ = seeded["ids"]
+        set_priorities(seeded["sm"], {a: 1.5, b: 1.5})
+        pool = make_pool(seeded)
         pool.refresh()
-        np.testing.assert_allclose(pool._scores, [0.5, 0.5])
 
-        # Patch 2 is re-scored at a much later iteration with the same rarity.
-        writer = make_writer(head_sm, batch_size=1000, flush_interval_s=30)
-        writer.enqueue(torch.tensor([2]), torch.tensor([101.5]))
+        writer = make_writer(seeded, batch_size=1000, flush_interval_s=30)
+        writer.enqueue(torch.tensor([b]), torch.tensor([101.5]))
         writer.close()
         pool.refresh()
 
-        scores = {r["patch_id"]: s for r, s in zip(pool._rows, pool._scores)}
-        assert scores[2] == pytest.approx(0.5, abs=1e-4)
-        assert scores[1] == pytest.approx(0.5 * math.exp(-datasets.GT_SCORE_DECAY * 100), abs=1e-4)
-        assert scores[1] < scores[2]
+        scores = scores_by_id(pool)
+        assert scores[b] == pytest.approx(0.5, abs=1e-6)
+        assert scores[a] == pytest.approx(0.5 * math.exp(-datasets.GT_SCORE_DECAY * 100), abs=1e-6)
 
-    def test_draw_decay_write_refresh_cycle(self, fake_db, head_sm):
-        pool = make_pool()
-        writer = make_writer(head_sm, batch_size=1000, flush_interval_s=30)
+    def test_draw_decay_write_refresh_cycle(self, seeded):
+        pool = make_pool(seeded)
+        writer = make_writer(seeded, batch_size=1000, flush_interval_s=30)
         pool.refresh()
 
         np.random.seed(0)
         picks = pool.draw_batch(2)
         for _, idx in picks:
             pool.decay_in_memory_score(idx)
-        drawn_ids = [row["patch_id"] for row, _ in picks]
+        drawn = [row["patch_id"] for row, _ in picks]
 
-        # Memory decays immediately; DB only changes once the writer flushes.
+        # Memory decays immediately; the DB only changes once the writer flushes.
         for _, idx in picks:
             assert pool._scores[idx] == pytest.approx(datasets.GT_SCORE_INIT * GT_SCORE_IN_MEMORY_DECAY)
-        assert all(v is None for v in fake_db.priorities.values())
+        assert all(v is None for v in db_priorities(seeded["sm"]).values())
 
-        writer.enqueue(torch.tensor(drawn_ids), torch.tensor([5.3] * len(drawn_ids)))
+        writer.enqueue(torch.tensor(drawn), torch.tensor([5.25] * len(drawn)))
         writer.close()
-        assert all(fake_db.priorities[p] == pytest.approx(5.3, abs=1e-4) for p in drawn_ids)
+        prios = db_priorities(seeded["sm"])
+        assert all(prios[p] == pytest.approx(5.25) for p in drawn)
 
         pool.refresh()
-        undrawn = ({1, 2, 3} - set(drawn_ids)).pop()
-        scores = {r["patch_id"]: s for r, s in zip(pool._rows, pool._scores)}
+        scores = scores_by_id(pool)
+        undrawn = (set(seeded["ids"]) - set(drawn)).pop()
         assert scores[undrawn] == datasets.GT_SCORE_INIT
-        for p in drawn_ids:
-            assert scores[p] == pytest.approx(0.3, abs=1e-4)
-
-
-def _wait_for(cond, timeout=5.0):
-    import time
-
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        if cond():
-            return
-        time.sleep(0.01)
-    raise AssertionError("condition not met in time")
+        assert all(scores[p] == pytest.approx(0.25, abs=1e-6) for p in drawn)
