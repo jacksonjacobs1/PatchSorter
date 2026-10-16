@@ -1,4 +1,4 @@
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.schema import CreateIndex, CreateTable
 
 from patchsorter.db.utils import SessionManager
@@ -20,44 +20,6 @@ from patchsorter.db.head_client.models import (
 
 from typing import Any, Dict, List
 
-class CitusShardMap:
-    def __init__(self, session, table_a: str, table_b: str):
-        self.table_a = table_a
-        self.table_b = table_b
-
-        self.map = self._get_map_for_tables(session,table_a, table_b)
-
-    @staticmethod
-    def _get_map_for_tables(session, table_a: str, table_b: str):
-        """
-        Returns a dictionary mapping {shard_id_a: shard_id_b} 
-        for two colocated tables.
-        """
-        query = text(f"""
-            SELECT s1.shardid AS shard_a, s2.shardid AS shard_b
-            FROM pg_dist_shard s1
-            JOIN pg_dist_shard s2 ON s1.shardminvalue = s2.shardminvalue 
-                                 AND s1.shardmaxvalue = s2.shardmaxvalue
-            JOIN pg_dist_partition p1 ON s1.logicalrelid = p1.logicalrelid
-            JOIN pg_dist_partition p2 ON s2.logicalrelid = p2.logicalrelid
-            WHERE s1.logicalrelid = '{table_a}'::regclass
-              AND s2.logicalrelid = '{table_b}'::regclass
-              AND p1.colocationid = p2.colocationid;
-        """)
-        result = session.execute(query)
-        rows = result.fetchall()
-        return {row.shard_a: row.shard_b for row in rows}
-        
-    def get_table_a_shard_list(self) -> List[int]:
-        return list(self.map.keys())
-    
-    def get_table_b_shard_list(self) -> List[int]:
-        return list(self.map.values())
-    
-    def get_b_shard_for_a_shard(self, shard_a: int) -> int:
-        return self.map[shard_a]
-
-
 class DatabaseManager:
     """Schema and DDL manager implemented on top of a SessionManager."""
 
@@ -72,21 +34,6 @@ class DatabaseManager:
                 cur.execute("SELECT * FROM citus_get_active_worker_nodes();")
                 return cur.fetchall()
 
-    def register_project_models(self) -> None:
-        """Query all existing project IDs and register their per-project ORM
-        models with ``Base.metadata``.
-
-        Call this once at application startup so that operations such as
-        ``drop_all_tables`` and ``setup_schema`` are aware of all project-
-        scoped tables (``project{N}_patch``, ``project{N}_pred_patch_*``,
-        ``project{N}_confusion_matrix_l*``) and can resolve FK dependencies
-        correctly without manual CASCADE workarounds.
-        """
-        with self.sm.get_session() as session:
-            project_ids = session.execute(select(Project.project_id)).scalars().all()
-
-        for project_id in project_ids:
-            all_project_models(int(project_id))
 
     def drop_all_tables(self) -> None:
         # check if the project table exists:
@@ -128,11 +75,27 @@ class DatabaseManager:
 
         Base.metadata.create_all(self.sm.engine)
 
-        # Seed the reserved "unassigned" label class (label_class_id = 1)
+        # Seed the reserved "unassigned" label class (label_class_id = -1).
+        # label_class_id must be set explicitly here — otherwise the insert
+        # falls through to the sequence default, which never produces -1.
         seed_statement = """
-            INSERT INTO label_class (project_id, name, color_code)
-            SELECT NULL, 'unassigned', NULL
-            WHERE NOT EXISTS (SELECT 1 FROM label_class WHERE label_class_id = 1);
+            INSERT INTO label_class (label_class_id, project_id, name, color_code)
+            SELECT -1, NULL, 'unassigned', NULL
+            WHERE NOT EXISTS (SELECT 1 FROM label_class WHERE label_class_id = -1);
+        """
+        # User-created classes must autoincrement starting at 0, since -1 is
+        # reserved for the unassigned class above. The sequence's default
+        # MINVALUE is 1, so it must be lowered to -1 (the unassigned class's
+        # id) before setval(..., 0, ...) — otherwise Postgres rejects 0 as
+        # out of range.
+        sequence_init_statement = """
+            DO $$
+            DECLARE
+                seq_name text := pg_get_serial_sequence('label_class', 'label_class_id');
+            BEGIN
+                EXECUTE format('ALTER SEQUENCE %s MINVALUE 0', seq_name);
+                PERFORM setval(seq_name, 0, false);
+            END $$;
         """
         distribution_statements = [
             "SELECT create_reference_table('project');",
@@ -155,6 +118,7 @@ class DatabaseManager:
                     print(f"Citus extension creation failed: {e}")
 
                 cur.execute(seed_statement)
+                cur.execute(sequence_init_statement)
                 for stmt in distribution_statements:
                     try:
                         cur.execute(stmt)
@@ -557,14 +521,7 @@ class DatabaseManager:
 
             self.setup_triggers(project_id, conn)
             conn.commit()
-
-    def get_shard_map_for_patch_and_pred(self, project_id: int) -> CitusShardMap:
-        """Get a mapping of {patch_shard_id: pred_patch_shard_id} for the colocated shards of project{N}_patch and project{N}_pred_patch_latest.
-
-        This is used by the application to route queries to the correct shard when joining patch and pred_patch tables together.
-        """
-        with self.sm.get_session() as session:
-            return CitusShardMap(session, build_table_name(project_id), build_pred_table_name(project_id, PredPatchSuffix.LATEST))
+            
             
     def clear_predictions(self, project_id: int) -> None:
         """Clear all rows from all pred_patch tables across all projects.

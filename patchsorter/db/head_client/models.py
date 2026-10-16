@@ -87,7 +87,7 @@ class LabelClass(Base):
         UniqueConstraint("project_id", "name"),
     )
 
-    label_class_id = Column(Integer, primary_key=True, autoincrement=True)
+    label_class_id = Column(Integer, primary_key=True)
     project_id     = Column(Integer, ForeignKey("project.project_id"))
     name           = Column(Text, nullable=False)
     color_code     = Column(Text)
@@ -148,11 +148,24 @@ _cm_cache: Dict[Tuple[int, int], type] = {}
 def patch_model(project_id: int) -> type:
     """Return the ORM model class for ``project{N}_patch``."""
     if project_id not in _patch_cache:
+        tbl_name = build_table_name(project_id)
         _patch_cache[project_id] = type(
             f"Patch{project_id}",
             (Base,),
             {
-                "__tablename__": build_table_name(project_id),
+                "__tablename__": tbl_name,
+                "__table_args__": (
+                    Index(
+                        f"idx_{tbl_name}_train_priority_positive",
+                        "train_priority",
+                        postgresql_where=text("train_priority > 0"),
+                    ),
+                    Index(
+                        f"idx_{tbl_name}_gt_label_positive",
+                        "label_class_id",
+                        postgresql_where=text("label_class_id > 0"),
+                    ),
+                ),
                 "patch_id":          Column(BigInteger, primary_key=True, autoincrement=True),
                 "patch_uid":         Column(Uuid, unique=False, nullable=True), # we don't need to enforce uniqueness since this is purely for user convenience and not used for any joins or lookups
                 "label_class_id":    Column(SmallInteger, nullable=False),
@@ -162,6 +175,7 @@ def patch_model(project_id: int) -> type:
                 "centroid_y":        Column(Float),
                 "polygon":           Column(Geometry("POLYGON")),
                 "patch_image":       Column(LargeBinary, nullable=False),
+                "train_priority":    Column(Float, nullable=True),
             },
         )
     return _patch_cache[project_id]

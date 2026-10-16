@@ -136,18 +136,18 @@ class LabelClassStore:
     def delete(self, label_class_id: int, project_id: int) -> None:
         """Delete a label class following the Annotation Class Deletion Protocol.
 
-        The "Unlabeled" class (``label_class_id = 1``) is reserved and cannot
+        The "Unlabeled" class (``label_class_id = UNASSIGNED_CLASS_ID``) is reserved and cannot
         be deleted.
 
         Deletion steps (all within the current session's transaction):
 
         1. Reset ``label_class_id`` on all patches in the project's patch table
-           that reference the deleted class back to ``1`` (Unlabeled).
+           that reference the deleted class back to ``UNASSIGNED_CLASS_ID`` (Unlabeled).
         2. Reset ``label_class_id`` on all rows in ``project{N}_pred_patch_latest``
-           that reference the deleted class back to ``1``.
+           that reference the deleted class back to ``UNASSIGNED_CLASS_ID``.
         3. Perform the same reset on ``project{N}_pred_patch_last``.
         4. Reset ``pred_label`` and ``gt_label`` in all five confusion-matrix
-           tables that reference the deleted class back to ``1``.
+           tables that reference the deleted class back to ``UNASSIGNED_CLASS_ID``.
         5. Delete the ``label_class`` row.
 
         Steps 1–4 must complete before step 5.
@@ -158,7 +158,7 @@ class LabelClassStore:
                 resolve project-scoped table names.
 
         Raises:
-            ValueError: If *label_class_id* is ``1`` (the reserved Unlabeled
+            ValueError: If *label_class_id* is ``UNASSIGNED_CLASS_ID`` (the reserved Unlabeled
                 class).
         """
         if label_class_id == UNASSIGNED_CLASS_ID:

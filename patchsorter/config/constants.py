@@ -38,7 +38,7 @@ PATCH_CSV_EXTS = {".csv"}
 
 PATCH_BATCH_SIZE = 1000
 
-UNASSIGNED_CLASS_ID = 1
+UNASSIGNED_CLASS_ID = -1
 
 
 class PatchCSVColumns(StrEnum):
