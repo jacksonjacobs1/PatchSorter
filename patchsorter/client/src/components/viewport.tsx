@@ -347,12 +347,13 @@ export default function Viewport({
         const numCols = Math.max(1, Math.ceil(width / spacing))
         const numRows = Math.max(1, Math.ceil(height / spacing))
 
+        // Cell-centred grid covering the full bounds, including partial edge cells.
         const points: { x: number; y: number }[] = []
-        for (let row = 0; (row + 1) * spacing < height; row++) {
-            for (let col = 0; (col + 1) * spacing < width; col++) {
+        for (let row = 0; row < numRows + 1; row++) {
+            for (let col = 0; col < numCols + 1; col++) {
                 points.push({
-                    x: bounds.left + col * spacing,
-                    y: bounds.top + row * spacing,
+                    x: Math.min(bounds.left + (col) * spacing, bounds.right),
+                    y: Math.min(bounds.top + (row) * spacing, bounds.bottom),
                 })
             }
         }
