@@ -520,8 +520,10 @@ def train_worker(config: Dict[str, Any]) -> None:
                     for j, patch_id in enumerate(finite_batch.patch_ids):
                         embed_x = float(first_coords[j, 0].item()) * GRID_SIZE_SCALE
                         embed_y = float(first_coords[j, 1].item()) * GRID_SIZE_SCALE
-                        grid_cell_i = int(embed_x)
-                        grid_cell_j = int(embed_y)
+                        # A point exactly on the world edge would land in cell
+                        # world_size, which no tile/CM read range covers.
+                        grid_cell_i = min(max(int(embed_x), 0), projection_space_size - 1)
+                        grid_cell_j = min(max(int(embed_y), 0), projection_space_size - 1)
                         records.append((
                             patch_id,
                             embed_x,
