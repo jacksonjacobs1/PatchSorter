@@ -51,17 +51,22 @@ def _world_to_grid_bbox(
     """
     grid_scale = 2 ** (max_level - level)
 
-    x_min = max(0.0, float(x_min))
-    y_min = max(0.0, float(y_min))
-    x_max = min(float(world_size), float(x_max))
-    y_max = min(float(world_size), float(y_max))
+    x_lo, x_hi = sorted((float(x_min), float(x_max)))
+    y_lo, y_hi = sorted((float(y_min), float(y_max)))
+    world = float(world_size)
 
-    i_min = int(min(x_min, x_max) / grid_scale)
-    i_max = int(max(x_min, x_max) / grid_scale)
-    j_min = int(min(y_min, y_max) / grid_scale)
-    j_max = int(max(y_min, y_max) / grid_scale)
+    # A box entirely outside [0, world_size] yields an inverted (empty) bbox
+    # so BETWEEN filters match nothing instead of being clamped onto the edge.
+    if x_hi < 0 or y_hi < 0 or x_lo > world or y_lo > world:
+        return 1, 1, 0, 0
 
-    return i_min, j_min, i_max, j_max
+    x_lo, x_hi = max(0.0, x_lo), min(world, x_hi)
+    y_lo, y_hi = max(0.0, y_lo), min(world, y_hi)
+
+    return (
+        int(x_lo / grid_scale), int(y_lo / grid_scale),
+        int(x_hi / grid_scale), int(y_hi / grid_scale),
+    )
 
 
 def _osm_tile_to_bbox(
