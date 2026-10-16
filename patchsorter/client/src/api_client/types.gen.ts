@@ -91,10 +91,6 @@ export type CreateProjectRequest = {
  */
 export type DlActorState = {
     /**
-     * Termination Signal
-     */
-    termination_signal: boolean;
-    /**
      * Training Enabled
      */
     training_enabled: boolean;

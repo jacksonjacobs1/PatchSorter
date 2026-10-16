@@ -320,13 +320,10 @@ def train_worker(config: Dict[str, Any]) -> None:
 
     cycle = 0
     while True:
-        # Termination and freeze checks happen only at cycle boundaries (after barriers),
-        # ensuring all workers are in sync when they read the flags.
+        # Termination is done by killing the DLActor (ray.kill), not by a flag, so no worker
+        # can exit while its peers wait at a barrier.
 
         wait_for_unfreeze(actor)
-        if ray.get(actor.get_termination_signal.remote()):
-            logger.info("[Worker %d (local %d)] Received termination signal. Shutting down.", world_rank, local_rank)
-            return
 
         # Discover locally assigned shards on each cycle since table rotation changes shard placements.
         with head_sm.get_session() as session:
@@ -366,11 +363,6 @@ def train_worker(config: Dict[str, Any]) -> None:
             if i % POLL_FROZEN_EVERY_N_BATCHES == 0:
 
                 wait_for_unfreeze(actor)
-                
-                if ray.get(actor.get_termination_signal.remote()):
-                    logger.info("[Worker %d (local %d)] Received termination signal. Shutting down.", world_rank, local_rank)
-                    return
-            
 
             # Decode images
             imgs_np: List[np.ndarray] = []
@@ -566,7 +558,6 @@ class DLActor:
     def __init__(self, project_id: int, app_config: Dict[str, Any], label_classes: List[LabelClassResponse]) -> None:
         self._project_id = project_id
         self._training_enabled: bool = False  # frozen by default until explicitly unfrozen
-        self._termination_signal: bool = False
         self._app_config = app_config or {}
         self._label_classes = label_classes
 
@@ -583,14 +574,6 @@ class DLActor:
             value: New value for the training-enabled flag.
         """
         self._training_enabled = value
-
-    def get_termination_signal(self) -> bool:
-        """Return whether workers have been signalled to shut down."""
-        return self._termination_signal
-
-    def set_termination_signal(self, value: bool) -> None:
-        """Signal workers to shut down. One-way: once True it cannot be reset."""
-        self._termination_signal = value
 
     def start_dl_proc(self, num_workers: int = 8) -> None:
         """Launch the distributed training loop
@@ -639,11 +622,8 @@ def _launch_training(
 
 def wait_for_unfreeze(actor: ray.actor.ActorHandle) -> None:
     while not ray.get(actor.get_training_enabled.remote()):
-        logger.info("Actor frozen. Waiting for unfreeze or termination.")
+        logger.info("Actor frozen. Waiting for unfreeze.")
         time.sleep(FROZEN_POLL_INTERVAL_S)
-        if ray.get(actor.get_termination_signal.remote()):
-            logger.info("Actor received termination while frozen. Shutting down.")
-            return
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------

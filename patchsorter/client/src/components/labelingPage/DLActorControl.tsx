@@ -39,7 +39,7 @@ export default function DLActorControl({ projectId, pollIntervalMs = 3000 }: DLA
             queryClient.setQueryData(['dlActorState', projectId], newState),
     })
 
-    const isActive = state !== null && state !== undefined && !state.termination_signal
+    const isActive = state !== null && state !== undefined
     const isFrozen = isActive && !state!.training_enabled
 
     const lifecycleLabel = lifecycleMutation.isPending

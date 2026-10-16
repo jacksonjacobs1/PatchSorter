@@ -30,38 +30,30 @@ def get_dl_actor_state(project_id: int) -> DLActorState | None:
     if actor is None:
         return None
     try:
-        term = ray.get(actor.get_termination_signal.remote())
         enabled = ray.get(actor.get_training_enabled.remote())
-        return DLActorState(termination_signal=term, training_enabled=enabled)
+        return DLActorState(training_enabled=enabled)
     except ActorDiedError:
         return None
 
 
-def start_processing(project_id: int) -> None:
-    """Signal any existing actor to stop, wait for it to leave the namespace, then create a new one."""
-    existing = _get_actor_handle(project_id)
-    if existing is not None:
-        try:
-            if not ray.get(existing.get_termination_signal.remote()):
-                ray.get(existing.set_termination_signal.remote(True))
-                logger.info("Signalled termination on existing actor for project %d.", project_id)
-        except Exception:
-            pass
+def _kill_actor(project_id: int) -> None:
+    """Kill the DL actor (and with it the Ray Train run it owns) and wait for its name to be released."""
+    actor = _get_actor_handle(project_id)
+    if actor is None:
+        return
+    ray.kill(actor, no_restart=True)
+    logger.info("Killed DL actor for project %d.", project_id)
 
-    # Wait for actor to leave Ray's namespace; force-kill on the final retry
-    attempt = 0
-    while (actor_handle := _get_actor_handle(project_id)) is not None:
-        if attempt >= MAX_START_RETRIES - 1:
-            if actor_handle is not None:
-                logger.warning(
-                    "Force-killing actor for project %d after %d retries.",
-                    project_id,
-                    MAX_START_RETRIES,
-                )
-                ray.kill(actor_handle, no_restart=True)
-        else:
-            time.sleep(START_RETRY_DELAY_S)
-        attempt += 1
+    for _ in range(MAX_START_RETRIES):
+        if _get_actor_handle(project_id) is None:
+            return
+        time.sleep(START_RETRY_DELAY_S)
+    raise RuntimeError(f"DL actor for project {project_id} did not terminate within {MAX_START_RETRIES * START_RETRY_DELAY_S} seconds.")
+
+
+def start_processing(project_id: int) -> None:
+    """Kill any existing actor, then create a new one."""
+    _kill_actor(project_id)
 
     app_config, label_classes = _get_project_config(project_id)
     actor = DLActor.options(  # type: ignore[attr-defined]
@@ -74,22 +66,15 @@ def start_processing(project_id: int) -> None:
 
 
 def request_shutdown(project_id: int) -> None:
-    current = get_dl_actor_state(project_id)
-    if current is None:
+    if _get_actor_handle(project_id) is None:
         raise ValueError("DL actor does not exist")
-    if current.termination_signal:
-        raise ValueError("Termination already signaled")
-
-    actor = _get_actor_handle(project_id)
-    if actor is None:
-        raise ValueError("DL actor does not exist")
-    ray.get(actor.set_termination_signal.remote(True))
+    _kill_actor(project_id)
 
 
 def set_freeze(project_id: int, frozen: bool) -> DLActorState:
     """frozen=True → set training_enabled=False; frozen=False → set training_enabled=True."""
     current = get_dl_actor_state(project_id)
-    if current is None or current.termination_signal:
+    if current is None:
         raise ValueError("Cannot set freeze: actor is not active")
 
     new_enabled = not frozen
@@ -101,7 +86,7 @@ def set_freeze(project_id: int, frozen: bool) -> DLActorState:
         raise ValueError("DL actor does not exist")
 
     ray.get(actor.set_training_enabled.remote(new_enabled))
-    return DLActorState(termination_signal=False, training_enabled=new_enabled)
+    return DLActorState(training_enabled=new_enabled)
 
 
 def _get_project_config(project_id: int):
