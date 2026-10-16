@@ -192,6 +192,15 @@ export default function Viewport({
         annotationLayerRef.current.draw()
     }
 
+    function getClampedBounds() {
+        return {
+            left: Math.max(0, mapRef.current.bounds().left),
+            top: Math.max(0, mapRef.current.bounds().top),
+            right: Math.min(WORLD_SIZE, mapRef.current.bounds().right),
+            bottom: Math.min(WORLD_SIZE, mapRef.current.bounds().bottom),
+        }
+    }
+
     // Keep a mutable ref for tile-URL state so the GeoJS callback always reads
     // the latest values without needing to re-register it.
     const tileStateRef = useRef({ colorBy, filterBy, selectedCells, numClasses, classIds })
@@ -694,7 +703,7 @@ export default function Viewport({
             return
         }
 
-        const bounds = mapRef.current.bounds()
+        const bounds = getClampedBounds()
 
         const lp = buildLpQuery()
 
@@ -715,7 +724,7 @@ export default function Viewport({
             if (panZoomClearTimeout) clearTimeout(panZoomClearTimeout)
             panZoomClearTimeout = setTimeout(async () => {
                 if (!mapRef.current || !quadFeatureRef.current || !quadLayerRef.current) return
-                const bounds = mapRef.current.bounds()
+                const bounds = getClampedBounds()
                 const lp = buildLpQuery()
                 bboxAbortRef.current?.abort()
                 bboxAbortRef.current = new AbortController()
