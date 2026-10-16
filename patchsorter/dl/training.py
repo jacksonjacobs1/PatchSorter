@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
-from patchsorter.config.constants import UNASSIGNED_CLASS_ID
+from patchsorter.config.constants import UNASSIGNED_CLASS_ID, SettingType, SettingScope
 from patchsorter.db.head_client.project import ProjectStore
 from torch.utils.tensorboard import SummaryWriter
 import ray
@@ -644,3 +644,73 @@ def wait_for_unfreeze(actor: ray.actor.ActorHandle) -> None:
         if ray.get(actor.get_termination_signal.remote()):
             logger.info("Actor received termination while frozen. Shutting down.")
             return
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
+
+
+def _parse_setting_value(value: str, setting_type: SettingType) -> object:
+    """Convert a raw string setting value to its Python type."""
+    match setting_type:
+        case SettingType.INTEGER:
+            return int(value)
+        case SettingType.BOOLEAN:
+            return value.lower() in ("true", "1")
+        case SettingType.ENUM | SettingType.STRING:
+            return value
+
+
+def startup_dl_actor(project_id: int) -> "DLActor":
+    """Create the named ``dl_actor`` if it does not exist, then start training.
+
+    Reads ``dl_num_workers`` and ``dl_patches_per_batch`` from the project's
+    settings table.  If an actor named ``"dl_actor"`` already exists it is
+    reused — a second training process is *not* launched.  To restart
+    training, call ``set_training_enabled(False)`` on the existing actor
+    first, wait for the current run to complete, then call this function again.
+
+    Args:
+        project_id: Project to run training for.
+
+    Returns:
+        The (possibly pre-existing) :class:`DLActor` handle.
+    """
+    head_sm = head_client.get_client()
+    with head_sm.get_session() as session:
+        settings_store = SettingsStore(session)
+        # TODO: This is unnecessary
+        raw = settings_store.get_all_raw(project_id, scope=SettingScope.PROJECT)
+        app_config = {
+            k: _parse_setting_value(v.value, v.type)
+            for k, v in raw.items()
+        }
+
+        # Fetch label classes for the worker to build the LabelMap
+        label_class_store = LabelClassStore(session)
+        label_classes = label_class_store.list_by_project(project_id)
+
+    num_workers: int = app_config.get("dl_num_workers", 8)
+
+    actor = DLActor.options(  # type: ignore[attr-defined]
+        name=dl_actor_name(project_id),
+        get_if_exists=True,
+    ).remote(project_id, app_config, label_classes)
+
+    actor.start_dl_proc.remote(num_workers)
+    return actor
+
+
+def compute_shard_assignments(
+    shard_ids: List[int], num_local_workers: int, rank: int
+) -> List[int]:
+    """Assign Citus shards to the current worker by round-robin modulo.
+
+    Args:
+        shard_ids: All shard IDs for the project.
+        num_local_workers: Number of local workers to divide shards among.
+        rank: Rank of the current worker.
+
+    Returns:
+        List of shard IDs assigned to this worker.
+    """
+    return [s for s in shard_ids if s % num_local_workers == rank]
