@@ -48,11 +48,20 @@ def _world_to_grid_bbox(
     """Convert embed-space coordinates [0, world_size] to grid bbox at the given level.
 
     Convention matches point_to_cell: i = x-axis, j = y-axis.
+
+    Raises:
+        ValueError: If ``x_min > x_max`` or ``y_min > y_max``.
     """
+    if x_min > x_max or y_min > y_max:
+        raise ValueError(
+            f"Invalid bounds: x_min ({x_min}) must be <= x_max ({x_max}) "
+            f"and y_min ({y_min}) must be <= y_max ({y_max})"
+        )
+
     grid_scale = 2 ** (max_level - level)
 
-    x_lo, x_hi = sorted((float(x_min), float(x_max)))
-    y_lo, y_hi = sorted((float(y_min), float(y_max)))
+    x_lo, x_hi = float(x_min), float(x_max)
+    y_lo, y_hi = float(y_min), float(y_max)
     world = float(world_size)
 
     # A box entirely outside [0, world_size] yields an inverted (empty) bbox
