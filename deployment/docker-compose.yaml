@@ -50,7 +50,7 @@ services:
             count: all
             capabilities: [gpu]
     volumes:
-      - nas_read:/opt/PatchSorter/mounts/nas_read
+      - nas_read:/opt/PatchSorter/mounts/nas_read # This can be changed to a server-side directory if needed.
       - nas_write:/opt/PatchSorter/mounts/nas_write
 
 networks:
