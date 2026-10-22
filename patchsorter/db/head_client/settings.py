@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from functools import lru_cache
 import tomllib
+from functools import lru_cache
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from pydantic import BaseModel, model_validator
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from patchsorter.config.constants import SettingScope, SettingType
 from patchsorter.db.head_client.models import SettingOverride
-from patchsorter.config.constants import SettingType, SettingScope
 
 _SETTINGS_DEFAULTS_PATH = Path(__file__).parent.parent.parent / "config" / "settings_defaults.toml"
 
@@ -39,12 +38,12 @@ class SettingDef(BaseModel):
     scope: SettingScope
     type: SettingType
     default: str
-    allowed_values: Optional[List[str]] = None
+    allowed_values: list[str] | None = None
     disabled: bool = False
     description: str = ""
 
     @model_validator(mode="after")
-    def _check_enum_has_values(self) -> "SettingDef":
+    def _check_enum_has_values(self) -> SettingDef:
         if self.type == SettingType.ENUM and not self.allowed_values:
             raise ValueError(f"{self.key}: enum type requires allowed_values")
         return self
@@ -83,10 +82,10 @@ class SettingsStore:
 
     def __init__(self, session: Session) -> None:
         self._session = session
-        self._overrides_cache: Optional[Dict[tuple, str]] = None
-        self._overrides_cache_project_id: Optional[int] = None
+        self._overrides_cache: dict[tuple, str] | None = None
+        self._overrides_cache_project_id: int | None = None
 
-    def _get_overrides_cache(self, project_id: Optional[int]) -> Dict[tuple, str]:
+    def _get_overrides_cache(self, project_id: int | None) -> dict[tuple, str]:
         if self._overrides_cache is None or self._overrides_cache_project_id != project_id:
             self._overrides_cache = self._load_overrides_map(project_id)
             self._overrides_cache_project_id = project_id
@@ -99,7 +98,7 @@ class SettingsStore:
     # Typed reads
     # ------------------------------------------------------------------
 
-    def get_str(self, setting_key: str, project_id: Optional[int] = None) -> str:
+    def get_str(self, setting_key: str, project_id: int | None = None) -> str:
         """Return the effective value of a STRING or ENUM setting.
 
         Raises:
@@ -111,7 +110,7 @@ class SettingsStore:
         self._require_type(entry, {SettingType.STRING, SettingType.ENUM})
         return self._resolve_raw(entry, project_id).value
 
-    def get_int(self, setting_key: str, project_id: Optional[int] = None) -> int:
+    def get_int(self, setting_key: str, project_id: int | None = None) -> int:
         """Return the effective value of an INTEGER setting.
 
         Raises:
@@ -122,7 +121,7 @@ class SettingsStore:
         self._require_type(entry, {SettingType.INTEGER})
         return int(self._resolve_raw(entry, project_id).value)
 
-    def get_bool(self, setting_key: str, project_id: Optional[int] = None) -> bool:
+    def get_bool(self, setting_key: str, project_id: int | None = None) -> bool:
         """Return the effective value of a BOOLEAN setting.
 
         Raises:
@@ -133,7 +132,7 @@ class SettingsStore:
         self._require_type(entry, {SettingType.BOOLEAN})
         return self._resolve_raw(entry, project_id).value.lower() in ("true", "1")
 
-    def get_raw(self, setting_key: str, project_id: Optional[int] = None) -> ResolvedSetting:
+    def get_raw(self, setting_key: str, project_id: int | None = None) -> ResolvedSetting:
         """Return the schema definition and effective value for *setting_key*, regardless of type.
 
         Useful for generic display/export code that doesn't care about the
@@ -146,8 +145,8 @@ class SettingsStore:
         return self._resolve_raw(entry, project_id)
 
     def get_all_raw(
-        self, project_id: Optional[int] = None, scope: Optional[SettingScope] = None
-    ) -> Dict[str, ResolvedSetting]:
+        self, project_id: int | None = None, scope: SettingScope | None = None
+    ) -> dict[str, ResolvedSetting]:
         """Return schema definitions and effective values for every setting in *scope*.
 
         Args:
@@ -164,7 +163,7 @@ class SettingsStore:
         """
         schema = self._load_settings_schema()
         overrides = self._load_overrides_map(project_id)
-        result: Dict[str, ResolvedSetting] = {}
+        result: dict[str, ResolvedSetting] = {}
 
         # Per setting resolution is performed lazily
         for key, entry in schema.items():
@@ -185,7 +184,7 @@ class SettingsStore:
     # Writes
     # ------------------------------------------------------------------
 
-    def update(self, setting_key: str, setting_value: str, project_id: Optional[int] = None) -> None:
+    def update(self, setting_key: str, setting_value: str, project_id: int | None = None) -> None:
         """Set an override value for *setting_key*, validated against the schema.
 
         Creates the override row if it doesn't exist yet, or updates it if
@@ -224,7 +223,7 @@ class SettingsStore:
             ))
         self._invalidate_cache()
 
-    def reset(self, setting_key: str, project_id: Optional[int] = None) -> None:
+    def reset(self, setting_key: str, project_id: int | None = None) -> None:
         """Delete the override for *setting_key*, reverting it to the schema default.
 
         A no-op if no override row exists. Disabled settings never have
@@ -245,7 +244,7 @@ class SettingsStore:
             self._session.delete(override)
         self._invalidate_cache()
 
-    def reset_all(self, project_id: Optional[int] = None, scope: Optional[SettingScope] = None) -> None:
+    def reset_all(self, project_id: int | None = None, scope: SettingScope | None = None) -> None:
         """Delete all overrides for the given scope, reverting everything to defaults.
         ...
         """
@@ -263,13 +262,13 @@ class SettingsStore:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _resolve_raw(self, entry: SettingDef, project_id: Optional[int]) -> ResolvedSetting:
+    def _resolve_raw(self, entry: SettingDef, project_id: int | None) -> ResolvedSetting:
         scoped_project_id = project_id if entry.scope == SettingScope.PROJECT else None
         overrides = self._get_overrides_cache(project_id)
         value = overrides.get((entry.key, scoped_project_id), entry.default)
         return ResolvedSetting(**entry.model_dump(), value=value, project_id=scoped_project_id)
 
-    def _load_overrides_map(self, project_id: Optional[int]) -> Dict[tuple, str]:
+    def _load_overrides_map(self, project_id: int | None) -> dict[tuple, str]:
         rows = self._session.scalars(
             select(SettingOverride).where(
                 (SettingOverride.project_id == project_id) | (SettingOverride.project_id.is_(None))
@@ -312,7 +311,7 @@ class SettingsStore:
 
     @staticmethod
     @lru_cache(maxsize=1)
-    def _load_settings_schema() -> Dict[str, SettingDef]:
+    def _load_settings_schema() -> dict[str, SettingDef]:
         with _SETTINGS_DEFAULTS_PATH.open("rb") as fh:
             data = tomllib.load(fh)
         return {key: SettingDef(key=key, **meta) for key, meta in data["settings"].items()}

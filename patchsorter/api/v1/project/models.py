@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel
 
@@ -7,7 +6,7 @@ from pydantic import BaseModel
 class ProjectResponse(BaseModel):
     project_id: int
     project_name: str
-    description: Optional[str] = None
+    description: str | None = None
     creation_ts: datetime | None = None
     total_patches: int | None = None
 
@@ -24,12 +23,12 @@ class ProjectStatsResponse(BaseModel):
 
 class CreateProjectRequest(BaseModel):
     name: str
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class UpdateProjectRequest(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
 
 
 

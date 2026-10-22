@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import random
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import cv2
 import numpy as np
@@ -67,7 +67,7 @@ def _decode_patch_image(raw: bytes | memoryview | None, patch_size: int) -> np.n
 
 
 def _build_views_batch(
-    imgs_np: List[np.ndarray],
+    imgs_np: list[np.ndarray],
     nviews: int,
     geom_transform: Any,
     photo_transform: Any,
@@ -77,7 +77,7 @@ def _build_views_batch(
     Returns a CPU tensor of shape ``[V*B, C, H, W]`` (uint8), laid out
     views-major: ``[v0_b0 .. v0_bB-1, v1_b0 .. v1_bB-1, ...]``.
     """
-    views: List[torch.Tensor] = []
+    views: list[torch.Tensor] = []
     for _ in range(nviews):
         view_tensors = [
             photo_transform(image=geom_transform(image=img)["image"])["image"]
@@ -97,14 +97,14 @@ class TrainingBatch:
         shard_id: Citus shard ID the batch was read from (``None`` for enriched batches).
     """
 
-    __slots__ = ("imgs", "raw_labels", "patch_ids", "shard_id")
+    __slots__ = ("imgs", "patch_ids", "raw_labels", "shard_id")
 
     def __init__(
         self,
         imgs: torch.Tensor,
         raw_labels: torch.Tensor,
-        patch_ids: List[int],
-        shard_id: Optional[int] = None,
+        patch_ids: list[int],
+        shard_id: int | None = None,
     ) -> None:
         self.imgs = imgs
         self.raw_labels = raw_labels
@@ -113,17 +113,17 @@ class TrainingBatch:
 
 
 def _build_training_batch(
-    rows: List[Dict[str, Any]],
+    rows: list[dict[str, Any]],
     patch_size: int,
     nviews: int,
     label_map: Any,
     geom_transform: Any,
     photo_transform: Any,
-    shard_id: Optional[int] = None,
-) -> Optional[TrainingBatch]:
+    shard_id: int | None = None,
+) -> TrainingBatch | None:
     """Decode images for *rows* and assemble a :class:`TrainingBatch`."""
-    imgs_np: List[np.ndarray] = []
-    valid_rows: List[Dict[str, Any]] = []
+    imgs_np: list[np.ndarray] = []
+    valid_rows: list[dict[str, Any]] = []
     for row in rows:
         img = _decode_patch_image(row.get("patch_image"), patch_size)
         if img is None:
@@ -242,7 +242,7 @@ class CandidatePool:
         self.pool_size = pool_size
         self._worker_sm = worker_client.get_client()
 
-        self._rows: List[Dict[str, Any]] = []
+        self._rows: list[dict[str, Any]] = []
         self._scores: np.ndarray = np.empty(0, dtype=np.float64)
 
     @property
@@ -271,7 +271,7 @@ class CandidatePool:
             dtype=np.float64,
         )
 
-    def draw_batch(self, n: int) -> List[Tuple[Dict[str, Any], int]]:
+    def draw_batch(self, n: int) -> list[tuple[dict[str, Any], int]]:
         """Weighted, without-replacement draw of up to *n* distinct candidates.
 
         Returns:

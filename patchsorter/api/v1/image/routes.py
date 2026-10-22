@@ -1,24 +1,23 @@
-from typing import List
+import io
+import logging
 
 import large_image
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from sqlalchemy import text
 
+from patchsorter.api.v1.image.models import ImageResponse, ImageStatsResponse
 from patchsorter.db.head_client import get_client as get_head_client
 from patchsorter.db.head_client.image import ImageStore
-from patchsorter.db.head_client.models import build_table_name, build_pred_table_name
-from patchsorter.api.v1.image.models import ImageResponse, ImageStatsResponse
-import logging
-import io
+from patchsorter.db.head_client.models import build_table_name
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
-@router.get("/projects/{project_id}/images/", response_model=List[ImageResponse])
-def list_images(project_id: int) -> List[ImageResponse]:
+@router.get("/projects/{project_id}/images/", response_model=list[ImageResponse])
+def list_images(project_id: int) -> list[ImageResponse]:
     client = get_head_client()
     with client.get_session() as session:
         store = ImageStore(session)

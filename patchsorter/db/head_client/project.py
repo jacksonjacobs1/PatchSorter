@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import delete, text
 from sqlalchemy.orm import Session
-
-from patchsorter.db.head_client.models import LabelClass, all_project_models, build_table_name, build_pred_table_name, SettingOverride, Image, Project
-from patchsorter.db.head_client.confusion_matrix import ConfusionMatrixStore
-from patchsorter.config.constants import PredPatchSuffix
-
-from sqlalchemy import delete
 from sqlalchemy.schema import DropTable
+
+from patchsorter.db.head_client.models import (
+    Image,
+    LabelClass,
+    Project,
+    SettingOverride,
+    all_project_models,
+)
 
 
 class ProjectStore:
@@ -29,7 +31,7 @@ class ProjectStore:
     # CRUD                                                                 #
     # ------------------------------------------------------------------ #
 
-    def create(self, name: str, description: Optional[str] = None) -> Dict[str, Any]:
+    def create(self, name: str, description: str | None = None) -> dict[str, Any]:
         """Insert a new project and return the created row.
 
         Args:
@@ -53,7 +55,7 @@ class ProjectStore:
         ).mappings().one()
         return dict(row)
 
-    def update(self, project_id: int, name: Optional[str] = None, description: Optional[str] = None) -> Dict[str, Any]:
+    def update(self, project_id: int, name: str | None = None, description: str | None = None) -> dict[str, Any]:
         """Update a project's name and/or description.
 
         Args:
@@ -69,7 +71,7 @@ class ProjectStore:
             RuntimeError: If the project does not exist.
         """
         set_clauses = []
-        params: Dict[str, Any] = {"project_id": project_id}
+        params: dict[str, Any] = {"project_id": project_id}
         if name is not None:
             set_clauses.append("project_name = :name")
             params["name"] = name
@@ -88,7 +90,7 @@ class ProjectStore:
             raise RuntimeError(f"Project {project_id} not found")
         return dict(row)
 
-    def get(self, project_id: int) -> Dict[str, Any]:
+    def get(self, project_id: int) -> dict[str, Any]:
         """Return a single project as a dict, or raise RuntimeError."""
         row = self._session.execute(
             text("SELECT * FROM project WHERE project_id = :project_id"),
@@ -98,7 +100,7 @@ class ProjectStore:
             raise RuntimeError(f"Project {project_id} not found")
         return dict(row)
 
-    def list_all(self) -> List[Dict[str, Any]]:
+    def list_all(self) -> list[dict[str, Any]]:
         """Return all projects ordered by ``project_id`` ascending.
 
         Returns:

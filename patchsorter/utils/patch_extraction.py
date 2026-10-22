@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import io
 import uuid
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator
 
 import large_image
 from osgeo import ogr
 from shapely.geometry.base import BaseGeometry
 from sqlalchemy.orm import Session
 
-from patchsorter.db.head_client.patch import PatchStore
 from patchsorter.db.head_client.image import ImageStore
+from patchsorter.db.head_client.patch import PatchStore
 
 # ---------------------------------------------------------------------------
 # Constants for patch extraction
@@ -33,8 +33,8 @@ def mm_per_pixel_at_base(base_mag: float) -> float:
 
 def _deprecated(func):
     """Decorator to mark functions as deprecated."""
-    import warnings
     import functools
+    import warnings
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):

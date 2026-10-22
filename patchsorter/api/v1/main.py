@@ -10,9 +10,9 @@ from .image.routes import router as image_router
 from .label_class.routes import router as label_class_router
 from .patch.routes import router as patch_router
 from .project.routes import router as project_router
+from .ray.routes import router as ray_router
 from .settings.routes import router as settings_router
 from .upload.routes import router as upload_router
-from .ray.routes import router as ray_router
 
 log = logging.getLogger(__name__)
 
@@ -36,8 +36,8 @@ async def lifespan(app: FastAPI):
 
     # Initialize the database schema on startup.
     try:
-        from patchsorter.db.head_client.database_manager import DatabaseManager
         from patchsorter.db.head_client import get_client
+        from patchsorter.db.head_client.database_manager import DatabaseManager
 
         DatabaseManager(get_client()).setup_schema()
         log.info("Database schema initialized.")

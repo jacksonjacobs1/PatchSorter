@@ -7,7 +7,6 @@ import pytest
 
 from patchsorter.db.utils import CitusShardMap
 
-
 # --- Test data helpers ------------------------------------------------------
 
 def _make_row(shard_a: int, shard_b: int):

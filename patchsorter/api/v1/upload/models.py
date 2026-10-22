@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Annotated, List
+from typing import Annotated
+
+from pydantic import AfterValidator, BaseModel
 
 from patchsorter.utils.validate import validate_path
-from pydantic import BaseModel, AfterValidator
 
 # For now these are identical, but we may want to differentiate them in the future.
 DirString = Annotated[str, AfterValidator(validate_path)]
@@ -42,13 +43,13 @@ class ProcessRow(BaseModel):
 
 
 class ValidateResponse(BaseModel):
-    paths: List[ReviewRow]
+    paths: list[ReviewRow]
     errors: int
     error: str | None = None
 
 
 class ProcessRequest(BaseModel):
-    paths: List[ProcessRow]
+    paths: list[ProcessRow]
 
 
 class ProcessResponse(BaseModel):

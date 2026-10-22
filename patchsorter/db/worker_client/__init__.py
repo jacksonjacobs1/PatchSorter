@@ -1,9 +1,10 @@
 """Worker client helpers (thin wrappers returning SessionManager for worker nodes)."""
 import os
+
 from patchsorter.db.utils import SessionManager
 from patchsorter.db.worker_client.patch import WorkerPatchStore
 
-__all__ = ["get_client", "WorkerPatchStore"]
+__all__ = ["WorkerPatchStore", "get_client"]
 
 
 # Module-level cache to avoid creating a new engine per request

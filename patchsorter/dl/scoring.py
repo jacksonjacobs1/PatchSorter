@@ -12,12 +12,11 @@ import logging
 import threading
 import time
 from queue import Empty, Queue
-from typing import List, Optional, Tuple
 
 import torch
 
-from patchsorter.db.utils import SessionManager
 from patchsorter.db.head_client.patch import PatchStore
+from patchsorter.db.utils import SessionManager
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +36,7 @@ def compute_weighting_scores(
     k_neighbors: int = K_NEIGHBORS,
     spatial_alpha: float = GT_SPATIAL_RARITY_ALPHA,
     class_alpha: float = GT_CLASS_RARITY_ALPHA,
-) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
+) -> tuple[torch.Tensor | None, torch.Tensor | None]:
     """Compute a combined spatial + class rarity score for labeled sequential patches.
 
     Args:
@@ -111,8 +110,8 @@ class ScoreWriter:
         self._batch_size = batch_size
         self._flush_interval_s = flush_interval_s
 
-        self._queue: "Queue[Tuple[int, float]]" = Queue()
-        self._pending: List[Tuple[int, float]] = []
+        self._queue: Queue[tuple[int, float]] = Queue()
+        self._pending: list[tuple[int, float]] = []
         self._stop_event = threading.Event()
         self._thread = threading.Thread(target=self._worker, daemon=True)
         self._thread.start()

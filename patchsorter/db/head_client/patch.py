@@ -1,15 +1,21 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-import numpy as np
-
 from patchsorter.config.constants import PredPatchSuffix
-from patchsorter.db.utils import CitusShardMap, build_local_node_shard_map_query, build_local_worker_shard_map_query
-from patchsorter.db.head_client.models import build_table_name, build_pred_table_name, patch_model
+from patchsorter.db.head_client.models import (
+    build_pred_table_name,
+    build_table_name,
+    patch_model,
+)
+from patchsorter.db.utils import (
+    CitusShardMap,
+    build_local_node_shard_map_query,
+    build_local_worker_shard_map_query,
+)
 
 
 class PatchStore:
@@ -85,9 +91,9 @@ class PatchStore:
         image_id: int,
         downsample_factor: float,
         patch_image: bytes,
-        centroid_x: Optional[float] = None,
-        centroid_y: Optional[float] = None,
-        polygon: Optional[str] = None,
+        centroid_x: float | None = None,
+        centroid_y: float | None = None,
+        polygon: str | None = None,
     ) -> int:
         """Insert a single patch and return the generated ``patch_id``.
 
@@ -132,7 +138,7 @@ class PatchStore:
         ).mappings().one()
         return row["patch_id"]
 
-    def bulk_insert(self, records: List[tuple]) -> int:
+    def bulk_insert(self, records: list[tuple]) -> int:
         """Insert multiple patches in a single round-trip.
 
         Each element of *records* must be a tuple of::
@@ -155,7 +161,7 @@ class PatchStore:
                 for i in range(len(records))
             ]
         )
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         for i, (pu, lc, im, df, cx, cy, poly, pi) in enumerate(records):
             params[f"patch_uid_{i}"] = pu
             params[f"label_class_id_{i}"] = lc
@@ -178,7 +184,7 @@ class PatchStore:
         )
         return len(records)
 
-    def copy_insert(self, records: List[tuple]) -> int:
+    def copy_insert(self, records: list[tuple]) -> int:
         """Insert multiple patches via the psycopg COPY protocol.
 
         Significantly faster than :meth:`bulk_insert` for large batches because
@@ -216,7 +222,7 @@ class PatchStore:
         limit: int = 10,
         cursor: int = 0,
         include_image: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Fetch up to *limit* patches, ordered by ``patch_id``.
 
         Args:
@@ -246,7 +252,7 @@ class PatchStore:
         ).mappings().all()
         return [dict(r) for r in rows]
 
-    def fetch_by_shards(self, shard_ids: List[int]) -> List[Dict[str, Any]]:
+    def fetch_by_shards(self, shard_ids: list[int]) -> list[dict[str, Any]]:
         """Fetch all patches from specific Citus physical shard tables.
 
         This bypasses the coordinator routing and reads directly from the
@@ -259,7 +265,7 @@ class PatchStore:
         Returns:
             A list of dicts with patch metadata (no ``patch_image`` blob).
         """
-        rows: List[Dict[str, Any]] = []
+        rows: list[dict[str, Any]] = []
         for shard_id in shard_ids:
             shard_rows = self._session.execute(
                 text(
@@ -293,7 +299,7 @@ class PatchStore:
 
     def bulk_update_labels_by_ids(
         self,
-        patch_ids: List[int],
+        patch_ids: list[int],
         label_class_id: int,
     ) -> int:
         """Bulk-update the ground-truth label for a list of patch IDs.
@@ -312,7 +318,7 @@ class PatchStore:
         if not patch_ids:
             return 0
         placeholders = ", ".join(f":pid_{i}" for i in range(len(patch_ids)))
-        params: Dict[str, Any] = {"label_class_id": label_class_id}
+        params: dict[str, Any] = {"label_class_id": label_class_id}
         for i, pid in enumerate(patch_ids):
             params[f"pid_{i}"] = pid
         result = self._session.execute(
@@ -325,7 +331,7 @@ class PatchStore:
         )
         return result.rowcount
 
-    def update_train_priority(self, updates: List[Tuple[int, float]]) -> int:
+    def update_train_priority(self, updates: list[tuple[int, float]]) -> int:
         """Batch-update the ``train_priority`` column for a set of patches.
 
         Writes through the logical distributed table, so Citus routes each
@@ -351,9 +357,9 @@ class PatchStore:
 
     def bulk_update_labels_by_cells(
         self,
-        cells: "List[Any]",
+        cells: list[Any],
         label_class_id: int,
-        label_pairs: Optional[List[Tuple[int, int]]] = None,
+        label_pairs: list[tuple[int, int]] | None = None,
     ) -> int:
         """Bulk-update ground-truth labels for all patches whose best
         prediction falls in one of the given grid cells.
@@ -380,7 +386,7 @@ class PatchStore:
         cell_placeholders = ", ".join(
             f"(:ci_{k}, :cj_{k})" for k in range(len(cells))
         )
-        params: Dict[str, Any] = {"label_class_id": label_class_id}
+        params: dict[str, Any] = {"label_class_id": label_class_id}
         for k, cell in enumerate(cells):
             params[f"ci_{k}"] = cell.i
             params[f"cj_{k}"] = cell.j
@@ -432,7 +438,7 @@ class PatchStore:
         j_max: int,
         polygon_wkt: str,
         label_class_id: int,
-        label_pairs: Optional[List[Tuple[int, int]]] = None,
+        label_pairs: list[tuple[int, int]] | None = None,
     ) -> int:
         """Bulk-update ground-truth labels for patches within a polygon.
 
@@ -458,7 +464,7 @@ class PatchStore:
         Returns:
             Number of rows updated.
         """
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "label_class_id": label_class_id,
             "i_min": i_min,
             "i_max": i_max,
@@ -522,7 +528,7 @@ class PatchStore:
     def pred_table_last(self) -> str:
         return build_pred_table_name(self.project_id, PredPatchSuffix.LAST)
 
-    def upsert_predictions(self, records: List[tuple]) -> int:
+    def upsert_predictions(self, records: list[tuple]) -> int:
         """Insert prediction rows into ``project{N}_pred_patch_latest`` via COPY.
 
         Each element of *records* must be a tuple of::
@@ -540,14 +546,13 @@ class PatchStore:
         if not records:
             return 0
         raw_conn = self._session.connection().connection
-        with raw_conn.cursor() as cur:
-            with cur.copy(
-                f"COPY {self.pred_table_latest} "
-                f"(patch_id, embed_x, embed_y, grid_cell_i, grid_cell_j, label_class_id) "
-                f"FROM STDIN"
-            ) as copy:
-                for row in records:
-                    copy.write_row(row)
+        with raw_conn.cursor() as cur, cur.copy(
+            f"COPY {self.pred_table_latest} "
+            f"(patch_id, embed_x, embed_y, grid_cell_i, grid_cell_j, label_class_id) "
+            f"FROM STDIN"
+        ) as copy:
+            for row in records:
+                copy.write_row(row)
         return len(records)
 
     # ------------------------------------------------------------------ #
@@ -559,8 +564,8 @@ class PatchStore:
         cursor: int = 0,
         limit: int = 20,
         include_image: bool = True,
-        label_pairs: Optional[List[Tuple[int, int]]] = None,
-    ) -> List[Dict[str, Any]]:
+        label_pairs: list[tuple[int, int]] | None = None,
+    ) -> list[dict[str, Any]]:
         """Fetch a paginated page of patches that have predictions.
 
         Only patches with at least one row in ``pred_patch_latest`` or
@@ -597,10 +602,10 @@ class PatchStore:
         cursor: int = 0,
         limit: int = 20,
         include_image: bool = True,
-        label_pairs: Optional[List[Tuple[int, int]]] = None,
-        image_id: Optional[int] = None,
-        label_class_ids: Optional[List[int]] = None,
-    ) -> List[Dict[str, Any]]:
+        label_pairs: list[tuple[int, int]] | None = None,
+        image_id: int | None = None,
+        label_class_ids: list[int] | None = None,
+    ) -> list[dict[str, Any]]:
         """Fetch a paginated page of ground-truth patches.
 
         Only patches with a ground-truth label (``label_class_id`` is not NULL)
@@ -636,13 +641,13 @@ class PatchStore:
     def _paginated_pred_join(
         self,
         pred_filter_sql: str,
-        pred_params: Dict[str, Any],
+        pred_params: dict[str, Any],
         *,
         cursor: int = 0,
         limit: int = 20,
         include_image: bool = True,
-        label_pairs: Optional[List[Tuple[int, int]]] = None,
-    ) -> List[Dict[str, Any]]:
+        label_pairs: list[tuple[int, int]] | None = None,
+    ) -> list[dict[str, Any]]:
         """Return a paginated, keyset-cursor page of patches joined with their
         best available prediction.
 
@@ -699,7 +704,7 @@ class PatchStore:
             )
 
         pairs_and = ""
-        lp_params: Dict[str, Any] = {}
+        lp_params: dict[str, Any] = {}
         if label_pairs:
             placeholders = ", ".join(
                 f"(:lp_gt_{i}, :lp_pred_{i})" for i in range(len(label_pairs))
@@ -774,7 +779,7 @@ class PatchStore:
             """
         )
 
-        params: Dict[str, Any] = {**pred_params, **lp_params, "_cursor": cursor, "_limit": limit}
+        params: dict[str, Any] = {**pred_params, **lp_params, "_cursor": cursor, "_limit": limit}
         rows = self._session.execute(sql, params).mappings().all()
         return [dict(r) for r in rows]
 
@@ -788,8 +793,8 @@ class PatchStore:
         cursor: int = 0,
         limit: int = 20,
         include_image: bool = True,
-        label_pairs: Optional[List[Tuple[int, int]]] = None,
-    ) -> List[Dict[str, Any]]:
+        label_pairs: list[tuple[int, int]] | None = None,
+    ) -> list[dict[str, Any]]:
         """Return a paginated page of patches whose predictions fall within a
         grid bounding box.
 
@@ -839,9 +844,9 @@ class PatchStore:
         cursor: int = 0,
         limit: int = 20,
         include_image: bool = True,
-        image_id: Optional[int] = None,
-        label_class_ids: Optional[List[int]] = None,
-    ) -> List[Dict[str, Any]]:
+        image_id: int | None = None,
+        label_class_ids: list[int] | None = None,
+    ) -> list[dict[str, Any]]:
         """Return a paginated, keyset-cursor page of patches from the patch table.
 
         Only patches whose ``patch_id > cursor`` are returned, ordered
@@ -897,7 +902,7 @@ class PatchStore:
 
 
 
-    def get_patch_by_id(self, patch_id: int) -> Optional[Dict[str, Any]]:
+    def get_patch_by_id(self, patch_id: int) -> dict[str, Any] | None:
         """Return a single patch row dict by ``patch_id``, including ``patch_image``.
 
         Looks up the patch by its primary key and returns all column values

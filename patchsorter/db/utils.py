@@ -3,13 +3,14 @@
 These were previously defined in the package root but have been moved
 here to keep the package `__init__` small.
 """
+from collections.abc import Generator, Iterator
 from contextlib import contextmanager
-from typing import Any, Generator, Iterator, List, Tuple
+from typing import Any
 
 import pandas as pd
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.engine import URL
+from sqlalchemy.orm import Session, sessionmaker
 
 
 class SessionManager:
@@ -168,20 +169,20 @@ def build_local_worker_shard_map_query(
 
 
 class CitusShardMap:
-    def __init__(self, rows: List[Any]):
+    def __init__(self, rows: list[Any]):
         self.map = pd.DataFrame(
             [(r.shard_a, r.shard_b) for r in rows],
             columns=["shard_a", "shard_b"],
         )
 
     @staticmethod
-    def from_rows(rows: List[Any]) -> "CitusShardMap":
+    def from_rows(rows: list[Any]) -> "CitusShardMap":
         return CitusShardMap(rows)
 
-    def get_table_a_shard_list(self) -> List[int]:
+    def get_table_a_shard_list(self) -> list[int]:
         return self.map["shard_a"].tolist()
 
-    def get_table_b_shard_list(self) -> List[int]:
+    def get_table_b_shard_list(self) -> list[int]:
         return self.map["shard_b"].tolist()
 
     def get_b_shard_for_a_shard(self, shard_a: int) -> int:
@@ -196,6 +197,6 @@ class CitusShardMap:
             raise KeyError(f"shard_b={shard_b} not found in shard map")
         return int(row.iloc[0]["shard_a"])
 
-    def __iter__(self) -> Iterator[Tuple[int, int]]:
+    def __iter__(self) -> Iterator[tuple[int, int]]:
         for _, row in self.map.iterrows():
             yield int(row["shard_a"]), int(row["shard_b"])

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import datetime
-from typing import Dict, Optional, Union
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -14,7 +13,7 @@ def init_summary_writer(world_rank: int, log_dir: str = "runs") -> SummaryWriter
     return SummaryWriter(log_dir=f"{log_dir}/worker_{world_rank}_{timestamp}", flush_secs=10)
 
 
-def _add_scalar(writer: SummaryWriter, tag: str, value: Union[torch.Tensor, float, None], step: int) -> None:
+def _add_scalar(writer: SummaryWriter, tag: str, value: torch.Tensor | float | None, step: int) -> None:
     if value is None:
         return
     if isinstance(value, torch.Tensor):
@@ -24,9 +23,9 @@ def _add_scalar(writer: SummaryWriter, tag: str, value: Union[torch.Tensor, floa
 
 def log_training_scalars(
     writer: SummaryWriter,
-    losses: Dict[str, Union[torch.Tensor, float]],
+    losses: dict[str, torch.Tensor | float],
     labeled_rate: float,
-    num_pseudo: Optional[torch.Tensor],
+    num_pseudo: torch.Tensor | None,
     niter_total: int,
 ) -> None:
     """Log per-loss scalars plus labeled-rate/pseudo-label counts for one training step."""
@@ -45,7 +44,7 @@ def log_training_scalars(
 
 def log_confusion_matrix(
     writer: SummaryWriter,
-    confusion: Optional[torch.Tensor],
+    confusion: torch.Tensor | None,
     step: int,
     prefix: str = "confusion",
 ) -> None:

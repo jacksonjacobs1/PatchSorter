@@ -65,6 +65,8 @@ pythonpath = ["."]
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
+    "ruff>=0.5",
+    "pyrefly>=1.4.0"
 ]
 
 [tool.uv.sources]

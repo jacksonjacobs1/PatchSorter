@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uuid
-from typing import List
 
 import ray
 from fastapi import APIRouter, HTTPException, UploadFile
@@ -12,7 +11,6 @@ from .models import (
     ProcessCsvResponse,
     ProcessRequest,
     ProcessResponse,
-    ReviewRow,
     UploadFilesResponse,
     ValidateRequest,
     ValidateResponse,
@@ -73,7 +71,7 @@ def open_upload_session(project_id: int) -> OpenSessionResponse:
 def upload_images(
     project_id: int,
     session_id: str,
-    files: List[UploadFile],
+    files: list[UploadFile],
 ) -> UploadFilesResponse:
     actor = _get_actor(session_id)
     filenames = [f.filename or "" for f in files]
@@ -90,7 +88,7 @@ def upload_images(
 def upload_masks(
     project_id: int,
     session_id: str,
-    files: List[UploadFile],
+    files: list[UploadFile],
 ) -> UploadFilesResponse:
     actor = _get_actor(session_id)
     filenames = [f.filename or "" for f in files]
@@ -107,7 +105,7 @@ def upload_masks(
 def upload_patch_csv(
     project_id: int,
     session_id: str,
-    files: List[UploadFile],
+    files: list[UploadFile],
 ) -> UploadFilesResponse:
     actor = _get_actor(session_id)
     filenames = [f.filename or "" for f in files]

@@ -3,40 +3,33 @@ from __future__ import annotations
 import csv
 import io
 import os
-import uuid
 from pathlib import Path
-from typing import List
-import ray
-import large_image
 
-from patchsorter.config.constants import (
-    IMAGE_EXTS,
-    MASK_EXTS,
-    PATCH_CSV_EXTS,
-    PATCH_BATCH_SIZE,
-    PatchExtractionMethod,
-    LargeImageMetadataKeys,
-    SettingType,
-    SettingScope,
-)
-from patchsorter.utils.fsmanager import FileStoreManager, scan_folder
+import large_image
+import ray
+
 from patchsorter.api.v1.upload.models import ProcessRow
 from patchsorter.api.v1.upload.patch_iterator import (
-    CsvGeometryIterable,
-    GeojsonGeometryIterable,
-    HybridPatchIterable,
     GeometryIterable,
     create_patch_iterator,
 )
+from patchsorter.config.constants import (
+    IMAGE_EXTS,
+    MASK_EXTS,
+    PATCH_BATCH_SIZE,
+    PATCH_CSV_EXTS,
+    LargeImageMetadataKeys,
+    PatchExtractionMethod,
+    SettingScope,
+    SettingType,
+)
 from patchsorter.db.head_client import get_client
-from patchsorter.db.head_client.patch import PatchStore
 from patchsorter.db.head_client.image import ImageStore
+from patchsorter.db.head_client.patch import PatchStore
 from patchsorter.db.head_client.settings import SettingsStore
+from patchsorter.utils.fsmanager import FileStoreManager, scan_folder
 from patchsorter.utils.patch_extraction import (
-    BASE_MAG_PPM_MICRONS,
-    MAG_TO_PPM_FACTOR,
     compute_downsample_factor,
-    estimate_object_radius_from_polygons,
     extract_patch_from_geometry,
     get_polygon_radius_in_pixels,
     mm_per_pixel_at_base,
@@ -70,7 +63,7 @@ def _check_image_duplicate(project_id: int, image_name: str) -> str | None:
     return f"Image '{image_name}' already exists in project" if existing else None
 
 
-def _save_files(tmpdir: str | Path, subdir: str, filenames: List[str], contents: List[bytes]) -> str:
+def _save_files(tmpdir: str | Path, subdir: str, filenames: list[str], contents: list[bytes]) -> str:
     """Save files to *subdir* inside *tmpdir*. Returns a count message."""
     dest = Path(tmpdir) / subdir
     dest.mkdir(parents=True, exist_ok=True)
@@ -429,15 +422,15 @@ class UploadSessionActor:
     # File storage
     # ------------------------------------------------------------------
 
-    def save_images(self, filenames: List[str], contents: List[bytes]) -> str:
+    def save_images(self, filenames: list[str], contents: list[bytes]) -> str:
         tmpdir = self._fsman.upload.get_session_dir(self._session_id)
         return _save_files(tmpdir, "images", filenames, contents)
 
-    def save_masks(self, filenames: List[str], contents: List[bytes]) -> str:
+    def save_masks(self, filenames: list[str], contents: list[bytes]) -> str:
         tmpdir = self._fsman.upload.get_session_dir(self._session_id)
         return _save_files(tmpdir, "masks", filenames, contents)
 
-    def save_patch_csvs(self, filenames: List[str], contents: List[bytes]) -> str:
+    def save_patch_csvs(self, filenames: list[str], contents: list[bytes]) -> str:
         tmpdir = self._fsman.upload.get_session_dir(self._session_id)
         return _save_files(tmpdir, "patch_csvs", filenames, contents)
 

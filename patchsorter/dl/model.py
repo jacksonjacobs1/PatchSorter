@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import timm
+import torch
+import torch.nn.functional as F
+from torch import nn
 
 
 class JointHead(nn.Module):

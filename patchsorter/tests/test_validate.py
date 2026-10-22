@@ -1,7 +1,6 @@
 """Unit tests for :func:`~patchsorter.utils.validate.validate_path`."""
 
 import pytest
-
 from pathvalidate.error import ValidationError
 
 from patchsorter.utils.validate import validate_path

@@ -1,12 +1,7 @@
 from __future__ import annotations
 
-import math
-from typing import Optional
-
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-
 
 # ---------------------------------------------------------------------------
 # SwAV loss (replaces the former NT-Xent/SimCLR embedding loss)
@@ -88,7 +83,7 @@ def swav_loss(
     sinkhorn_iters: int = 3,
     temp: float = 0.1,
     eps: float = 0.05,
-    prototypes: Optional[torch.Tensor] = None,
+    prototypes: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Simplified in-batch SwAV-like swapped-prediction loss.
 

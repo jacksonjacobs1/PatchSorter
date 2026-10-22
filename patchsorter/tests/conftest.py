@@ -46,23 +46,27 @@ the main application:
 
 import os
 import uuid
-from typing import Any, Dict, Generator
+from collections.abc import Generator
+from typing import Any
 
 import psycopg
 import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from patchsorter.db.head_client import ImageStore, LabelClassStore, PatchStore, ProjectStore
+from patchsorter.db.head_client import (
+    ImageStore,
+    LabelClassStore,
+    PatchStore,
+)
 from patchsorter.db.head_client.database_manager import DatabaseManager
 from patchsorter.db.utils import SessionManager
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _citus_params() -> Dict[str, Any]:
+def _citus_params() -> dict[str, Any]:
     return {
         "host": os.environ.get("CITUS_HEAD_HOST", "localhost"),
         "port": int(os.environ.get("CITUS_HEAD_PORT", "5432")),
@@ -188,7 +192,7 @@ def db_session(test_db: SessionManager) -> Generator[Session, None, None]:
 @pytest.fixture(scope="function")
 def example_project(
     db_session: Session, _project1_tables: None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Seed the database with a project, two label classes, one image, and five patches.
 
     Uses ``project_id = 1`` (forced via ``OVERRIDING SYSTEM VALUE``) so that

@@ -1,37 +1,36 @@
-from typing import List, Optional
 
-import numpy as np
 from fastapi import APIRouter, HTTPException, Query, Response
 from shapely.geometry import shape
 from sqlalchemy import text
 
-from patchsorter.db.head_client import get_client as get_head_client
-from patchsorter.db.head_client.patch import PatchStore
-from patchsorter.db.head_client.models import build_table_name
-from patchsorter.db.head_client.settings import SettingsStore
+from patchsorter.api.v1.confusion_matrix.utils import (
+    _parse_label_pairs,
+    _world_to_grid_bbox,
+)
 from patchsorter.api.v1.patch.models import (
     LabelAssignByPolygonRequest,
     LabelAssignResponse,
     PatchResponse,
-    SampleByPointRequest,
 )
-from patchsorter.api.v1.confusion_matrix.utils import _parse_label_pairs, _world_to_grid_bbox
-
+from patchsorter.db.head_client import get_client as get_head_client
+from patchsorter.db.head_client.models import build_table_name
+from patchsorter.db.head_client.patch import PatchStore
+from patchsorter.db.head_client.settings import SettingsStore
 
 router = APIRouter()
 
 
-@router.get("/projects/{project_id}/patches/", response_model=List[PatchResponse])
+@router.get("/projects/{project_id}/patches/", response_model=list[PatchResponse])
 def list_patches(
     project_id: int,
     cursor: int = Query(default=0, description="Keyset cursor: last seen patch_id (exclusive lower bound)"),
     limit: int = Query(default=20, ge=1, le=500),
-    x_min: Optional[float] = Query(default=None),
-    y_min: Optional[float] = Query(default=None),
-    x_max: Optional[float] = Query(default=None),
-    y_max: Optional[float] = Query(default=None),
-    lp: Optional[List[str]] = Query(default=None, description="Label pair filter: repeat for each pair as 'gt,pred' (e.g. lp=0,1&lp=2,2)"),
-) -> List[PatchResponse]:
+    x_min: float | None = Query(default=None),
+    y_min: float | None = Query(default=None),
+    x_max: float | None = Query(default=None),
+    y_max: float | None = Query(default=None),
+    lp: list[str] | None = Query(default=None, description="Label pair filter: repeat for each pair as 'gt,pred' (e.g. lp=0,1&lp=2,2)"),
+) -> list[PatchResponse]:
     use_bbox = all(v is not None for v in (x_min, y_min, x_max, y_max))
     label_pairs = _parse_label_pairs(lp)
     client = get_head_client()
@@ -104,7 +103,7 @@ def get_patch_image(project_id: int, patch_id: int) -> Response:
 @router.post("/projects/{project_id}/patches/", response_model=LabelAssignResponse)
 def assign_labels_by_ids(
     project_id: int,
-    patch_ids: List[int] = Query(..., description="Patch IDs to relabel"),
+    patch_ids: list[int] = Query(..., description="Patch IDs to relabel"),
     label_class_id: int = Query(..., description="Ground-truth label class to assign"),
 ) -> LabelAssignResponse:
     client = get_head_client()
@@ -119,7 +118,7 @@ def assign_labels_by_polygon(
     project_id: int,
     body: LabelAssignByPolygonRequest,
     label_class_id: int = Query(..., description="Ground-truth label class to assign"),
-    lp: Optional[List[str]] = Query(default=None, description="Label pair filter: repeat for each pair as 'gt,pred' (e.g. lp=0,1&lp=2,2)"),
+    lp: list[str] | None = Query(default=None, description="Label pair filter: repeat for each pair as 'gt,pred' (e.g. lp=0,1&lp=2,2)"),
 ) -> LabelAssignResponse:
     polygon = shape(body.polygon)
     label_pairs = _parse_label_pairs(lp)

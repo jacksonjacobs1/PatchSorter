@@ -1,21 +1,23 @@
-from typing import List, Optional
+import io
 from enum import Enum
 
 import numpy as np
-from PIL import Image
-import io
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
+from PIL import Image
 
-from patchsorter.db.head_client import get_client as get_head_client
-from patchsorter.api.v1.confusion_matrix.models import WorldInfo, ConfusionMatrixResponse
+from patchsorter.api.v1.confusion_matrix.models import (
+    ConfusionMatrixResponse,
+    WorldInfo,
+)
 from patchsorter.api.v1.confusion_matrix.utils import (
+    _empty_tile,
+    _make_dist_image,
+    _osm_tile_to_bbox,
     _parse_label_pairs,
     _world_to_grid_bbox,
-    _osm_tile_to_bbox,
-    _make_dist_image,
-    _empty_tile,
 )
+from patchsorter.db.head_client import get_client as get_head_client
 from patchsorter.db.head_client.confusion_matrix import ConfusionMatrixStore
 from patchsorter.db.head_client.label_class import LabelClassStore
 from patchsorter.db.head_client.settings import SettingsStore
@@ -57,7 +59,7 @@ def serve_tile(
     x: int,
     y: int,
     sum_over: SumOver = Query(default=SumOver.gt),
-    lp: Optional[List[str]] = Query(default=None),
+    lp: list[str] | None = Query(default=None),
 ) -> Response:
     client = get_head_client()
     with client.get_session() as session:
@@ -112,7 +114,7 @@ def get_confusion_matrix(
     y_min: float = Query(...),
     x_max: float = Query(...),
     y_max: float = Query(...),
-    lp: Optional[List[str]] = Query(default=None),
+    lp: list[str] | None = Query(default=None),
 ) -> ConfusionMatrixResponse:
     try:
         client = get_head_client()

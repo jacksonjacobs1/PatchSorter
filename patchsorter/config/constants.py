@@ -1,7 +1,5 @@
 import os
-
 from enum import StrEnum
-
 
 MOUNTS_PATH = os.path.join('/opt/PatchSorter', 'mounts')
 

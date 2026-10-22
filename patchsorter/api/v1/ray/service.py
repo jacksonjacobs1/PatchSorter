@@ -7,8 +7,7 @@ from ray.exceptions import ActorDiedError
 from patchsorter.config.constants import SettingScope
 from patchsorter.db import head_client
 from patchsorter.db.head_client.label_class import LabelClassStore
-from patchsorter.db.head_client.settings import SettingsStore
-from patchsorter.db.head_client.settings import _parse_setting_value
+from patchsorter.db.head_client.settings import SettingsStore, _parse_setting_value
 from patchsorter.dl.training import DLActor, dl_actor_name
 
 from .models import DLActorState

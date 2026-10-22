@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from typing import List, Tuple
-
-from deprecated import deprecated
 import numpy as np
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -59,8 +56,8 @@ class ConfusionMatrixStore:
     # ------------------------------------------------------------------ #
 
     def _build_pair_params(
-        self, label_pairs: List[Tuple[int, int]]
-    ) -> Tuple[str, dict]:
+        self, label_pairs: list[tuple[int, int]]
+    ) -> tuple[str, dict]:
         """Build the ``IN (…)`` clause and params dict for label-pair filtering.
 
         Args:
@@ -82,7 +79,7 @@ class ConfusionMatrixStore:
         return placeholders, params
 
     @staticmethod
-    def _label_lookup(labels: np.ndarray) -> Tuple[np.ndarray, int]:
+    def _label_lookup(labels: np.ndarray) -> tuple[np.ndarray, int]:
         """Build a dense 0-based index lookup table for a sorted array of label IDs.
 
         ``label_class_id`` values are not guaranteed to start at 0 or be
@@ -113,8 +110,8 @@ class ConfusionMatrixStore:
 
     def bbox_search(
         self,
-        bbox: Tuple[int, int, int, int],
-        label_pairs: List[Tuple[int, int]],
+        bbox: tuple[int, int, int, int],
+        label_pairs: list[tuple[int, int]],
     ) -> np.ndarray:
         """Return aggregated counts for a spatial bounding box.
 
@@ -174,10 +171,10 @@ class ConfusionMatrixStore:
 
     def read_region(
         self,
-        bbox: Tuple[int, int, int, int],
-        label_pairs: List[Tuple[int, int]],
+        bbox: tuple[int, int, int, int],
+        label_pairs: list[tuple[int, int]],
         sum_over_gt: bool = True,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Return a spatial count array for rendering a tile region.
 
         Fetches counts via :meth:`bbox_search` and assembles a dense spatial
@@ -231,9 +228,9 @@ class ConfusionMatrixStore:
 
     def read_confusion_matrix(
         self,
-        bbox: Tuple[int, int, int, int],
-        label_pairs: List[Tuple[int, int]],
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        bbox: tuple[int, int, int, int],
+        label_pairs: list[tuple[int, int]],
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Return the confusion matrix summed over all spatial dimensions.
 
         Args:

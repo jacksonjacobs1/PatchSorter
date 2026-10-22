@@ -1,8 +1,6 @@
 """Unit tests for :class:`~patchsorter.dl.training.LabelMap`."""
 
-import pytest
 
-from patchsorter.config.constants import UNASSIGNED_CLASS_ID
 from patchsorter.db.head_client.models import LabelClass
 from patchsorter.dl.training import LabelMap
 

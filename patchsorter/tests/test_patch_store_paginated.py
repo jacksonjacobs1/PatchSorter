@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 import pytest
 from sqlalchemy import text
@@ -10,12 +10,11 @@ from sqlalchemy.orm import Session
 
 from patchsorter.db.head_client import PatchStore
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _get_patch_ids(session: Session, project_id: int) -> List[int]:
+def _get_patch_ids(session: Session, project_id: int) -> list[int]:
     """Return patch_ids for project{N}_patch ordered by patch_id."""
     rows = session.execute(
         text(f"SELECT patch_id FROM project{project_id}_patch ORDER BY patch_id")
@@ -23,12 +22,12 @@ def _get_patch_ids(session: Session, project_id: int) -> List[int]:
     return [r[0] for r in rows]
 
 
-def _insert_latest(session: Session, project_id: int, records: List[tuple]) -> None:
+def _insert_latest(session: Session, project_id: int, records: list[tuple]) -> None:
     """Insert directly into pred_patch_latest via upsert_predictions."""
     PatchStore(project_id, session).upsert_predictions(records)
 
 
-def _insert_last(session: Session, project_id: int, records: List[tuple]) -> None:
+def _insert_last(session: Session, project_id: int, records: list[tuple]) -> None:
     """Insert rows into pred_patch_last using raw SQL (no store method exists for _last)."""
     if not records:
         return
@@ -37,7 +36,7 @@ def _insert_last(session: Session, project_id: int, records: List[tuple]) -> Non
         f"(:patch_id_{i}, :embed_x_{i}, :embed_y_{i}, :grid_cell_i_{i}, :grid_cell_j_{i}, :label_class_id_{i})"
         for i in range(len(records))
     )
-    params: Dict[str, Any] = {}
+    params: dict[str, Any] = {}
     for i, (pid, ex, ey, gi, gj, lc) in enumerate(records):
         params[f"patch_id_{i}"] = pid
         params[f"embed_x_{i}"] = ex
@@ -81,7 +80,7 @@ def _insert_last(session: Session, project_id: int, records: List[tuple]) -> Non
 # ---------------------------------------------------------------------------
 
 @pytest.fixture()
-def seeded_preds(example_project: Dict[str, Any], db_session: Session) -> Dict[str, Any]:
+def seeded_preds(example_project: dict[str, Any], db_session: Session) -> dict[str, Any]:
     """Seed pred_patch_latest and pred_patch_last on top of example_project."""
     project_id: int = example_project["project"]["project_id"]
     lc_id: int = example_project["label_classes"][0]["label_class_id"]
@@ -422,7 +421,7 @@ class TestGetPatchesWithinGridBbox:
 # ---------------------------------------------------------------------------
 
 @pytest.fixture()
-def seeded_preds_lp(example_project: Dict[str, Any], db_session: Session) -> Dict[str, Any]:
+def seeded_preds_lp(example_project: dict[str, Any], db_session: Session) -> dict[str, Any]:
     """Seed predictions with mixed (gt, pred) label-class combinations."""
     project_id: int = example_project["project"]["project_id"]
     tumor_id: int = example_project["label_classes"][0]["label_class_id"]

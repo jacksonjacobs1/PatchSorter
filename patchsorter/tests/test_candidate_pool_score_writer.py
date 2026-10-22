@@ -9,7 +9,7 @@ import math
 import time
 import uuid
 from collections import namedtuple
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 import pytest
@@ -29,7 +29,7 @@ ShardRow = namedtuple("ShardRow", "shard_a shard_b")
 
 
 @pytest.fixture
-def seeded(test_db, _project1_tables, monkeypatch) -> Dict[str, Any]:
+def seeded(test_db, _project1_tables, monkeypatch) -> dict[str, Any]:
     """Commit a project with three labeled patches and one unlabeled patch."""
     with test_db.get_session() as s:
         s.execute(
@@ -76,12 +76,12 @@ def seeded(test_db, _project1_tables, monkeypatch) -> Dict[str, Any]:
         s.execute(text("DELETE FROM project WHERE project_id = 1"))
 
 
-def db_priorities(sm) -> Dict[int, Any]:
+def db_priorities(sm) -> dict[int, Any]:
     with sm.get_session() as s:
         return {r.patch_id: r.train_priority for r in s.execute(text("SELECT patch_id, train_priority FROM project1_patch"))}
 
 
-def set_priorities(sm, values: Dict[int, Any]) -> None:
+def set_priorities(sm, values: dict[int, Any]) -> None:
     with sm.get_session() as s:
         for pid, prio in values.items():
             s.execute(text("UPDATE project1_patch SET train_priority = :p WHERE patch_id = :i"), {"p": prio, "i": pid})
@@ -105,7 +105,7 @@ def wait_for(cond, timeout=10.0):
     raise AssertionError("condition not met in time")
 
 
-def scores_by_id(pool: CandidatePool) -> Dict[int, float]:
+def scores_by_id(pool: CandidatePool) -> dict[int, float]:
     return {r["patch_id"]: float(s) for r, s in zip(pool._rows, pool._scores)}
 
 

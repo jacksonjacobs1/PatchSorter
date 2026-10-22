@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -7,25 +7,25 @@ from pydantic import BaseModel
 
 class PatchResponse(BaseModel):
     patch_id: int
-    patch_uid: Optional[UUID] = None
+    patch_uid: UUID | None = None
     label_class_id: int
     image_id: int
     downsample_factor: float
-    centroid_x: Optional[float] = None
-    centroid_y: Optional[float] = None
-    polygon: Optional[str] = None
+    centroid_x: float | None = None
+    centroid_y: float | None = None
+    polygon: str | None = None
     # Prediction columns (None when no prediction exists for this patch)
-    embed_x: Optional[float] = None
-    embed_y: Optional[float] = None
-    grid_cell_i: Optional[int] = None
-    grid_cell_j: Optional[int] = None
-    pred_label_class_id: Optional[int] = None
-    event_ts: Optional[datetime] = None
-    priority: Optional[int] = None
+    embed_x: float | None = None
+    embed_y: float | None = None
+    grid_cell_i: int | None = None
+    grid_cell_j: int | None = None
+    pred_label_class_id: int | None = None
+    event_ts: datetime | None = None
+    priority: int | None = None
 
 
 class LabelAssignByPolygonRequest(BaseModel):
-    polygon: Dict[str, Any]
+    polygon: dict[str, Any]
 
 
 

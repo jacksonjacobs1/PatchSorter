@@ -1,15 +1,25 @@
+
 from geoalchemy2 import Geometry
 from sqlalchemy import (
-    BigInteger, Boolean, CheckConstraint, Column, Date, Float, ForeignKey,
-    Index, Integer, LargeBinary, SmallInteger, Text, UniqueConstraint, Uuid, event
+    BigInteger,
+    Column,
+    Date,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    LargeBinary,
+    SmallInteger,
+    Text,
+    UniqueConstraint,
+    Uuid,
 )
 from sqlalchemy.orm import DeclarativeBase, relationship
 from sqlalchemy.sql import func, text
 from sqlalchemy.types import TIMESTAMP
-from typing import TYPE_CHECKING, Dict, Tuple
 
+from patchsorter.config.constants import PredPatchSuffix
 from patchsorter.db.head_client.confusion_matrix import ConfusionMatrixStore
-from patchsorter.config.constants import PredPatchSuffix, SettingType
 
 
 def build_table_name(project_id: int, shard: int | None = None) -> str:
@@ -139,10 +149,10 @@ class Log(Base):
 # registry when the same project_id is requested more than once.
 # ---------------------------------------------------------------------------
 
-_patch_cache: Dict[int, type] = {}
-_pred_patch_latest_cache: Dict[int, type] = {}
-_pred_patch_last_cache: Dict[int, type] = {}
-_cm_cache: Dict[Tuple[int, int], type] = {}
+_patch_cache: dict[int, type] = {}
+_pred_patch_latest_cache: dict[int, type] = {}
+_pred_patch_last_cache: dict[int, type] = {}
+_cm_cache: dict[tuple[int, int], type] = {}
 
 
 def patch_model(project_id: int) -> type:

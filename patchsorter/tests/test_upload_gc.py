@@ -1,10 +1,8 @@
 """Tests for the upload session garbage collector."""
 
-import os
 import shutil
 import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -12,7 +10,6 @@ from patchsorter.api.v1.upload.gc import (
     _cleanup_abandoned_temp_dirs,
     _cleanup_expired_sessions,
 )
-
 
 # ------------------------------------------------------------------
 # _cleanup_abandoned_temp_dirs

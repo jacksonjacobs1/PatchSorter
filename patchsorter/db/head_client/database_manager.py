@@ -1,24 +1,28 @@
-from sqlalchemy import select
+from typing import Any
+
 from sqlalchemy.schema import CreateIndex, CreateTable
 
-from patchsorter.db.utils import SessionManager
-from patchsorter.db.head_client.models import Base, Project, all_project_models, build_table_name, build_pred_table_name
-from patchsorter.db.head_client.patch import PatchStore
-from patchsorter.db.head_client.confusion_matrix import ConfusionMatrixStore
 from patchsorter.config.constants import PredPatchSuffix
-from patchsorter.db.head_client.project import ProjectStore
-from patchsorter.utils.fsmanager import NASWriteStore
+from patchsorter.db.head_client.confusion_matrix import ConfusionMatrixStore
+
 # Clear per-project model caches so they are not in Base.metadata
 # when create_all() runs.  Project tables must only be created by
 # setup_project().
 from patchsorter.db.head_client.models import (
+    Base,
     _cm_cache,
     _patch_cache,
     _pred_patch_last_cache,
     _pred_patch_latest_cache,
+    all_project_models,
+    build_pred_table_name,
+    build_table_name,
 )
+from patchsorter.db.head_client.patch import PatchStore
+from patchsorter.db.head_client.project import ProjectStore
+from patchsorter.db.utils import SessionManager
+from patchsorter.utils.fsmanager import NASWriteStore
 
-from typing import Any, Dict, List
 
 class DatabaseManager:
     """Schema and DDL manager implemented on top of a SessionManager."""
@@ -26,7 +30,7 @@ class DatabaseManager:
     def __init__(self, session_manager: SessionManager):
         self.sm = session_manager
 
-    def get_worker_nodes(self) -> List[Dict[str, Any]]:
+    def get_worker_nodes(self) -> list[dict[str, Any]]:
         from psycopg.rows import dict_row
 
         with self.sm.get_connection() as conn:

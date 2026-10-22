@@ -1,12 +1,17 @@
 from __future__ import annotations
 
-import re
-from typing import Any, Dict, Generator, List, Tuple
-from sqlalchemy import text, table, column, select, func, exists, union_all, case
+from collections.abc import Generator
+from typing import Any
+
+from sqlalchemy import case, column, func, select, table, text, union_all
 from sqlalchemy.orm import Session
 
-from patchsorter.db.head_client.models import build_table_name, build_pred_table_name, patch_model
-from patchsorter.config.constants import PredPatchSuffix, UNASSIGNED_CLASS_ID
+from patchsorter.config.constants import UNASSIGNED_CLASS_ID, PredPatchSuffix
+from patchsorter.db.head_client.models import (
+    build_pred_table_name,
+    build_table_name,
+    patch_model,
+)
 
 
 class WorkerPatchStore:
@@ -65,7 +70,7 @@ class WorkerPatchStore:
         shard_id: int,
         after_id: int,
         batch_size: int,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Fetch a single page of patch rows from a local shard table.
 
         Uses keyset pagination — returns up to *batch_size* rows whose
@@ -101,7 +106,7 @@ class WorkerPatchStore:
         self,
         shard_id: int,
         batch_size: int = 1000,
-    ) -> Generator[List[Dict[str, Any]], None, None]:
+    ) -> Generator[list[dict[str, Any]], None, None]:
         """Yield batches of patch rows streamed from a single local shard table.
 
         Uses keyset pagination on ``patch_id`` for efficient, low-memory
@@ -144,7 +149,7 @@ class WorkerPatchStore:
     def insert_predictions_to_shard(
         self,
         shard_id: int,
-        records: List[tuple],
+        records: list[tuple],
     ) -> int:
         """Insert prediction rows into the local pred_patch_latest shard via COPY.
 
@@ -185,11 +190,11 @@ class WorkerPatchStore:
 
     def fetch_candidate_pool_from_local_shards(
         self,
-        shard_ids: List[int],
+        shard_ids: list[int],
         limit: int,
         decay: float,
         init_score: float,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Fetch the top-``limit`` labeled patches across all given shards, ranked by
         an exponentially-decayed rarity score computed in SQL.
 

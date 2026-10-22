@@ -2,9 +2,8 @@
 
 import pytest
 
-from patchsorter.config.constants import SettingType, SettingScope
+from patchsorter.config.constants import SettingScope, SettingType
 from patchsorter.db.head_client import ProjectStore, SettingsStore
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

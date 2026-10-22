@@ -1,21 +1,19 @@
-from typing import List, Optional, Tuple
 import io
 import math
 
-import numpy as np
 import matplotlib.colors as mcolors
+import numpy as np
 from fastapi import HTTPException
 from fastapi.responses import Response
 from PIL import Image
 
 from patchsorter.db.head_client.models import LabelClass
 
-
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
 
-def _parse_label_pairs(lp: Optional[List[str]]) -> Optional[List[Tuple[int, int]]]:
+def _parse_label_pairs(lp: list[str] | None) -> list[tuple[int, int]] | None:
     """Parse repeated ?lp=gt,pred query params into a list of (gt, pred) tuples.
 
     Returns ``None`` when *lp* is empty/missing to signal that the caller
@@ -44,7 +42,7 @@ def _parse_label_pairs(lp: Optional[List[str]]) -> Optional[List[Tuple[int, int]
 def _world_to_grid_bbox(
     x_min: float, y_min: float, x_max: float, y_max: float, level: int,
     max_level: int, world_size: int,
-) -> Tuple[int, int, int, int]:
+) -> tuple[int, int, int, int]:
     """Convert embed-space coordinates [0, world_size] to grid bbox at the given level.
 
     Convention matches point_to_cell: i = x-axis, j = y-axis.
@@ -81,7 +79,7 @@ def _world_to_grid_bbox(
 def _osm_tile_to_bbox(
     z: int, x: int, y: int, level: int,
     max_level: int, world_size: int,
-) -> Tuple[int, int, int, int, float, float, float, float]:
+) -> tuple[int, int, int, int, float, float, float, float]:
     """Convert OSM tile (z, x, y) to grid bbox at the given aggregation level.
 
     Returns (i_min, j_min, i_max, j_max, wx0, wy0, wx1, wy1).
@@ -106,7 +104,7 @@ def _osm_tile_to_bbox(
 
 def _make_dist_image(
     region: np.ndarray,
-    label_classes: List[LabelClass],
+    label_classes: list[LabelClass],
     class_indices: np.ndarray,
     min_brightness: float = 0.15,
 ) -> np.ndarray:

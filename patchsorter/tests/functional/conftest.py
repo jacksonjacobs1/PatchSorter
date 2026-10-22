@@ -17,15 +17,16 @@ Fixtures
 """
 
 import uuid
-from typing import Any, Dict, Generator, List
+from collections.abc import Generator
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-import patchsorter.api.v1.project.routes as project_routes
 import patchsorter.api.v1.label_class.routes as label_class_routes
 import patchsorter.api.v1.patch.routes as patch_routes
+import patchsorter.api.v1.project.routes as project_routes
 from patchsorter.api.v1.main import create_app
 from patchsorter.db.head_client import (
     ImageStore,
@@ -33,9 +34,7 @@ from patchsorter.db.head_client import (
     PatchStore,
 )
 from patchsorter.db.head_client.models import build_table_name
-from patchsorter.db.head_client.settings import SettingsStore
 from patchsorter.db.utils import SessionManager
-
 
 # ---------------------------------------------------------------------------
 # client — TestClient with DB monkeypatched
@@ -62,7 +61,7 @@ def client(test_db: SessionManager, monkeypatch: pytest.MonkeyPatch) -> TestClie
 @pytest.fixture(scope="function")
 def seeded_project(
     test_db: SessionManager, _project1_tables: None
-) -> Generator[Dict[str, Any], None, None]:
+) -> Generator[dict[str, Any], None, None]:
     """Commit a complete project dataset and tear it down without dropping tables.
 
     Seeds:
@@ -149,7 +148,7 @@ def seeded_project(
             ]
         )
         # Read back patch_ids within the same session before commit
-        patch_ids: List[int] = [
+        patch_ids: list[int] = [
             r["patch_id"] for r in patch_store.fetch(limit=10)
         ]
 

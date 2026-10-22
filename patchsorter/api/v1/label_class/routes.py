@@ -1,18 +1,21 @@
-from typing import List
 
 from fastapi import APIRouter, HTTPException
 from sqlalchemy.exc import IntegrityError
 
+from patchsorter.api.v1.label_class.models import (
+    LabelClassCreate,
+    LabelClassDefaultResponse,
+    LabelClassResponse,
+    LabelClassUpdate,
+)
 from patchsorter.db.head_client import get_client as get_head_client
-from patchsorter.db.head_client.label_class import LabelClassStore, ColorPalette
-from patchsorter.api.v1.label_class.models import LabelClassResponse, LabelClassCreate, LabelClassDefaultResponse, LabelClassUpdate
-
+from patchsorter.db.head_client.label_class import ColorPalette, LabelClassStore
 
 router = APIRouter()
 
 
-@router.get("/projects/{project_id}/label_classes/", response_model=List[LabelClassResponse])
-def list_label_classes(project_id: int) -> List[LabelClassResponse]:
+@router.get("/projects/{project_id}/label_classes/", response_model=list[LabelClassResponse])
+def list_label_classes(project_id: int) -> list[LabelClassResponse]:
     client = get_head_client()
     with client.get_session() as session:
         store = LabelClassStore(session)

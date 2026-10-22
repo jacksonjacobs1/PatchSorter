@@ -4,39 +4,31 @@ import datetime
 import logging
 import math
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-import cv2
-import numpy as np
-import torch
-import torch.distributed as dist
-import torch.nn.functional as F
-from patchsorter.config.constants import UNASSIGNED_CLASS_ID, SettingType, SettingScope
-from torch.utils.data import DataLoader
 import ray.train
 import ray.train.torch
-from ray.train import get_context
+import torch
+import torch.distributed as dist
+from ray.train import ScalingConfig, get_context
 from ray.train.collective import barrier
 from ray.train.torch import TorchTrainer
-from ray.train import ScalingConfig
+from torch.utils.data import DataLoader
 
+from patchsorter.api.v1.label_class.models import LabelClassResponse
+from patchsorter.config.constants import UNASSIGNED_CLASS_ID, SettingScope, SettingType
 from patchsorter.db import head_client, worker_client
 from patchsorter.db.head_client.database_manager import DatabaseManager
 from patchsorter.db.head_client.label_class import LabelClassStore
-from patchsorter.api.v1.label_class.models import LabelClassResponse
+from patchsorter.db.head_client.patch import PatchStore
 from patchsorter.db.head_client.settings import SettingsStore
 from patchsorter.db.worker_client.patch import WorkerPatchStore
-from patchsorter.db.head_client.patch import PatchStore
-from patchsorter.dl.model import JointHead, backbone_init
-from patchsorter.dl.augmentations import get_transforms
 from patchsorter.dl.datasets import (
     EnrichedInfiniteIterableDataset,
     IterableShardDataset,
     TrainingBatch,
     worker_init_fn,
 )
-from patchsorter.dl.scoring import ScoreWriter, compute_weighting_scores
-from patchsorter.dl.utils_logging import init_summary_writer, log_confusion_matrix, log_training_scalars
 from patchsorter.dl.losses import (
     AdaptiveThreshold,
     LabeledRateTracker,
@@ -48,6 +40,13 @@ from patchsorter.dl.losses import (
     repulsion_loss,
     semantic_head_loss,
     swav_loss,
+)
+from patchsorter.dl.model import JointHead, backbone_init
+from patchsorter.dl.scoring import ScoreWriter, compute_weighting_scores
+from patchsorter.dl.utils_logging import (
+    init_summary_writer,
+    log_confusion_matrix,
+    log_training_scalars,
 )
 
 logger = logging.getLogger(__name__)
@@ -134,20 +133,20 @@ class LabelMap:
         idx_to_id: ``{model_class_index: db_label_class_id}``
     """
 
-    def __init__(self, label_classes: List[LabelClassResponse]) -> None:
+    def __init__(self, label_classes: list[LabelClassResponse]) -> None:
         valid = sorted(
             [lc for lc in label_classes if lc.label_class_id != UNASSIGNED_CLASS_ID],
             key=lambda lc: lc.label_class_id,
         )
-        self._id_to_idx: Dict[int, int] = {lc.label_class_id: i for i, lc in enumerate(valid)}
-        self._idx_to_id: Dict[int, int] = {i: lc.label_class_id for i, lc in enumerate(valid)}
+        self._id_to_idx: dict[int, int] = {lc.label_class_id: i for i, lc in enumerate(valid)}
+        self._idx_to_id: dict[int, int] = {i: lc.label_class_id for i, lc in enumerate(valid)}
 
     @property
-    def id_to_idx(self) -> Dict[int, int]:
+    def id_to_idx(self) -> dict[int, int]:
         return self._id_to_idx
 
     @property
-    def idx_to_id(self) -> Dict[int, int]:
+    def idx_to_id(self) -> dict[int, int]:
         return self._idx_to_id
 
     def get_n_classes(self) -> int:
@@ -243,7 +242,7 @@ def _warm_start_projection_head(
     dist.broadcast(raw_head.proj_fc[0].bias.data, src=0)
 
 
-def train_worker(config: Dict[str, Any]) -> None:
+def train_worker(config: dict[str, Any]) -> None:
     """Per-worker training + prediction loop executed by Ray Train.
 
     Each cycle:
@@ -270,7 +269,7 @@ def train_worker(config: Dict[str, Any]) -> None:
     """
     project_id: int = config["project_id"]
     app_config = config["app_config"]
-    label_classes: List[LabelClassResponse] = config["label_classes"]
+    label_classes: list[LabelClassResponse] = config["label_classes"]
     patches_per_batch: int = app_config.get("dl_patches_per_batch", 1000)
     patch_size: int = app_config.get("patch_size", 64)
     projection_space_size: int = app_config.get("world_size", 4096)
@@ -402,7 +401,7 @@ def train_worker(config: Dict[str, Any]) -> None:
                 shard_id = finite_batch.shard_id
                 nbase_ids = len(finite_batch.patch_ids)
 
-                infinite_batch: Optional[TrainingBatch] = next(enriched_iter)
+                infinite_batch: TrainingBatch | None = next(enriched_iter)
                 if infinite_batch is not None:
                     batch = concat_batches(finite_batch, infinite_batch, NVIEWS)
                 else:
@@ -515,8 +514,8 @@ def train_worker(config: Dict[str, Any]) -> None:
                         first_logits = logits[:nbase_ids].float()        # [nbase_ids, C]
                         pred_classes = first_logits.argmax(dim=-1)       # [nbase_ids]
 
-                    now = datetime.datetime.now(tz=datetime.timezone.utc)
-                    records: List[tuple] = []
+                    now = datetime.datetime.now(tz=datetime.UTC)
+                    records: list[tuple] = []
                     for j, patch_id in enumerate(finite_batch.patch_ids):
                         embed_x = float(first_coords[j, 0].item()) * GRID_SIZE_SCALE
                         embed_y = float(first_coords[j, 1].item()) * GRID_SIZE_SCALE
@@ -601,7 +600,7 @@ class DLActor:
     :func:`dl_actor_name`.
     """
 
-    def __init__(self, project_id: int, app_config: Dict[str, Any], label_classes: List[LabelClassResponse]) -> None:
+    def __init__(self, project_id: int, app_config: dict[str, Any], label_classes: list[LabelClassResponse]) -> None:
         self._project_id = project_id
         self._training_enabled: bool = False  # frozen by default until explicitly unfrozen
         self._termination_signal: bool = False
@@ -652,9 +651,9 @@ class DLActor:
 
 def _launch_training(
     project_id: int,
-    app_config: Dict[str, Any],
+    app_config: dict[str, Any],
     num_workers: int,
-    label_classes: List[LabelClassResponse],
+    label_classes: list[LabelClassResponse],
 ) -> Any:
     """Blocking Ray task that runs TorchTrainer.fit().
 
@@ -691,7 +690,7 @@ def _parse_setting_value(value: str, setting_type: SettingType) -> object:
             return value
 
 
-def startup_dl_actor(project_id: int) -> "DLActor":
+def startup_dl_actor(project_id: int) -> DLActor:
     """Create the named ``dl_actor`` if it does not exist, then start training.
 
     Reads ``dl_num_workers`` and ``dl_patches_per_batch`` from the project's
@@ -732,8 +731,8 @@ def startup_dl_actor(project_id: int) -> "DLActor":
 
 
 def compute_shard_assignments(
-    shard_ids: List[int], num_local_workers: int, rank: int
-) -> List[int]:
+    shard_ids: list[int], num_local_workers: int, rank: int
+) -> list[int]:
     """Assign Citus shards to the current worker by round-robin modulo.
 
     Args:

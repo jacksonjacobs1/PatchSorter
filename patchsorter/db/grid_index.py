@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import List
 
 from shapely.geometry import Point, Polygon
 
@@ -52,7 +51,7 @@ class HierarchicalGridIndexIJPair:
             level=level,
         )
 
-    def polygon_to_cells(self, polygon: Polygon, level: int) -> List[GridCell]:
+    def polygon_to_cells(self, polygon: Polygon, level: int) -> list[GridCell]:
         """Return all :class:`GridCell` objects at *level* whose centre lies
         inside *polygon*.
 
@@ -74,7 +73,7 @@ class HierarchicalGridIndexIJPair:
         j_start = math.floor(min_y / scaled_size)
         j_end = math.floor(max_y / scaled_size)
 
-        cells: List[GridCell] = []
+        cells: list[GridCell] = []
         for i in range(i_start, i_end + 1):
             for j in range(j_start, j_end + 1):
                 cx = (i + 0.5) * scaled_size

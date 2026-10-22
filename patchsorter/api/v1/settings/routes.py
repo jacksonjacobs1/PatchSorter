@@ -1,11 +1,13 @@
-from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
-from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from patchsorter.db.head_client import get_client as get_head_client
-from patchsorter.db.head_client.settings import SettingsStore, ResolvedSetting, SettingDisabledError
-from pydantic import BaseModel
+from patchsorter.db.head_client.settings import (
+    ResolvedSetting,
+    SettingDisabledError,
+    SettingsStore,
+)
 
 router = APIRouter()
 
@@ -14,8 +16,8 @@ class UpdateSettingRequest(BaseModel):
     value: str
 
 
-@router.get("/settings/", response_model=List[ResolvedSetting])
-def list_settings(project_id: Optional[int] = None, scope: Optional[str] = None) -> List[ResolvedSetting]:
+@router.get("/settings/", response_model=list[ResolvedSetting])
+def list_settings(project_id: int | None = None, scope: str | None = None) -> list[ResolvedSetting]:
     client = get_head_client()
     with client.get_session() as session:
         store = SettingsStore(session)
@@ -27,7 +29,7 @@ def list_settings(project_id: Optional[int] = None, scope: Optional[str] = None)
 def update_setting(
     setting_key: str,
     body: UpdateSettingRequest,
-    project_id: Optional[int] = None,
+    project_id: int | None = None,
 ) -> ResolvedSetting:
     client = get_head_client()
     with client.get_session() as session:

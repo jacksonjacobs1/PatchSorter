@@ -6,8 +6,9 @@ from __future__ import annotations
 
 import warnings
 
-from patchsorter.db.head_client.patch import PatchStore as _PatchStore
 from sqlalchemy.orm import Session
+
+from patchsorter.db.head_client.patch import PatchStore as _PatchStore
 
 
 class PredPatchStore(_PatchStore):

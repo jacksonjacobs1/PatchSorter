@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import albumentations as A
 import cv2
 import numpy as np
-import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
 

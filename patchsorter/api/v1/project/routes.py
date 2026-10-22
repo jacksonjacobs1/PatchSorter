@@ -1,21 +1,24 @@
-from datetime import datetime
-from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException
 from sqlalchemy import case, func, select, text
 
+from patchsorter.api.v1.project.models import (
+    CreateProjectRequest,
+    ProjectResponse,
+    ProjectStatsResponse,
+    UpdateProjectRequest,
+)
 from patchsorter.db.head_client import get_client as get_head_client
 from patchsorter.db.head_client.database_manager import DatabaseManager
+from patchsorter.db.head_client.models import build_table_name
 from patchsorter.db.head_client.project import ProjectStore
 from patchsorter.db.head_client.settings import SettingsStore
-from patchsorter.db.head_client.models import build_table_name
-from patchsorter.api.v1.project.models import ProjectResponse, ProjectStatsResponse, CreateProjectRequest, UpdateProjectRequest
 
 router = APIRouter()
 
 
-@router.get("/projects/", response_model=List[ProjectResponse])
-def list_projects() -> List[ProjectResponse]:
+@router.get("/projects/", response_model=list[ProjectResponse])
+def list_projects() -> list[ProjectResponse]:
     client = get_head_client()
     with client.get_session() as session:
         store = ProjectStore(session)

@@ -1,17 +1,21 @@
 from __future__ import annotations
 
-from pathlib import Path
 import uuid
 from abc import ABC, abstractmethod
-from typing import Iterator
+from collections.abc import Iterator
+from pathlib import Path
 
 import pandas as pd
 from osgeo import ogr
 from shapely import wkb, wkt
-from shapely.geometry import Point, shape
+from shapely.geometry import Point
 from shapely.geometry.base import BaseGeometry
 
-from patchsorter.config.constants import UNASSIGNED_CLASS_ID, PatchCSVColumns, PatchGeoJSONProperties
+from patchsorter.config.constants import (
+    UNASSIGNED_CLASS_ID,
+    PatchCSVColumns,
+    PatchGeoJSONProperties,
+)
 
 VALID_OGR_GEOMETRY_TYPES = {ogr.wkbPolygon, ogr.wkbPoint}
 

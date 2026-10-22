@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel
 
@@ -8,7 +7,7 @@ class LabelClassResponse(BaseModel):
     label_class_id: int
     project_id: int | None
     name: str
-    color_code: Optional[str] = None
+    color_code: str | None = None
     event_ts: datetime
 
     model_config = {"from_attributes": True}
@@ -16,7 +15,7 @@ class LabelClassResponse(BaseModel):
 
 class LabelClassCreate(BaseModel):
     name: str
-    color_code: Optional[str] = None
+    color_code: str | None = None
 
 
 class LabelClassDefaultResponse(BaseModel):
@@ -24,5 +23,5 @@ class LabelClassDefaultResponse(BaseModel):
 
 
 class LabelClassUpdate(BaseModel):
-    name: Optional[str] = None
-    color_code: Optional[str] = None
+    name: str | None = None
+    color_code: str | None = None

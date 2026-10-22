@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -51,9 +51,9 @@ class LogStore:
 
     def query(
         self,
-        level: Optional[str] = None,
+        level: str | None = None,
         limit: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Return recent log entries, optionally filtered by severity level.
 
         Results are ordered by ``timestamp`` descending (most recent first).

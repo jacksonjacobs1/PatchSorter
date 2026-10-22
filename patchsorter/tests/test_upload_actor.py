@@ -4,13 +4,10 @@ Covers folder mode, file-drop mode (session temp dir only), mixed mode
 (file-drop images + server mask/CSV), and edge cases.
 """
 
-import os
-import tempfile
 
 import pytest
 
 from patchsorter.api.v1.upload.actor import _validate_mixed
-
 
 # ------------------------------------------------------------------
 # Helpers

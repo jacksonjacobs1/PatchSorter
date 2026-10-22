@@ -15,7 +15,6 @@ from patchsorter.api.v1.confusion_matrix.utils import (
     _world_to_grid_bbox,
 )
 
-
 # ------------------------------------------------------------------
 # _parse_label_pairs
 # ------------------------------------------------------------------
@@ -405,6 +404,7 @@ def test_empty_tile_content_length():
 def test_empty_tile_is_white():
     """_empty_tile produces a white PNG image."""
     from io import BytesIO
+
     from PIL import Image
 
     result = _empty_tile()

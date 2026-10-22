@@ -2,7 +2,6 @@
 
 from fastapi.testclient import TestClient
 
-
 # --- List patches -------------------------------------------------------------
 
 

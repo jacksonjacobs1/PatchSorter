@@ -9,7 +9,6 @@ No registry or registration calls are needed — Ray already tracks all live act
 from __future__ import annotations
 
 import logging
-import os
 import shutil
 import tempfile
 import threading

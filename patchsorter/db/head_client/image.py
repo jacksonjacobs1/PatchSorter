@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from patchsorter.db.head_client.models import Image, build_table_name, build_pred_table_name
-
-from patchsorter.config.constants import PredPatchSuffix, UNASSIGNED_CLASS_ID
+from patchsorter.config.constants import UNASSIGNED_CLASS_ID, PredPatchSuffix
+from patchsorter.db.head_client.models import (
+    Image,
+    build_pred_table_name,
+    build_table_name,
+)
 
 
 class ImageStore:
@@ -32,11 +35,11 @@ class ImageStore:
         base_width: int,
         base_height: int,
         deepzoom_tilesize: int,
-        embedding_x: Optional[float] = None,
-        embedding_y: Optional[float] = None,
-        group_id: Optional[int] = None,
-        train_test_split: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        embedding_x: float | None = None,
+        embedding_y: float | None = None,
+        group_id: int | None = None,
+        train_test_split: int | None = None,
+    ) -> dict[str, Any]:
         """Insert a new image record and return the created row.
 
         Args:
@@ -87,7 +90,7 @@ class ImageStore:
         ).mappings().one()
         return dict(row)
 
-    def get(self, image_id: int, project_id: int) -> Optional[Image]:
+    def get(self, image_id: int, project_id: int) -> Image | None:
         """Return a single image row as an Image ORM object.
 
         Args:
@@ -103,7 +106,7 @@ class ImageStore:
         ).first()
 
 
-    def list_by_project(self, project_id: int) -> List[Image]:
+    def list_by_project(self, project_id: int) -> list[Image]:
         """Return all images belonging to a project ordered by ``image_id``.
 
         Args:
@@ -120,7 +123,7 @@ class ImageStore:
             .all()
         )
 
-    def get_by_project_and_name(self, project_id: int, name: str) -> Optional[Image]:
+    def get_by_project_and_name(self, project_id: int, name: str) -> Image | None:
         """Return the image row matching *project_id* and *name*, or ``None``.
 
         Args:
@@ -190,7 +193,7 @@ class ImageStore:
             {"image_id": image_id},
         )
 
-    def update(self, image_id: int, project_id: int, image_path: Path | None) -> Optional[Image]:
+    def update(self, image_id: int, project_id: int, image_path: Path | None) -> Image | None:
         """Update an image row.
 
         Args:

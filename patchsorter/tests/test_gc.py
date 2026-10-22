@@ -2,8 +2,6 @@
 
 import logging
 
-import pytest
-
 from patchsorter.api.v1.upload.gc import _cleanup_expired_sessions, start_gc_thread
 
 

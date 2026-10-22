@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from pathlib import Path
 
 import ray
 from fastapi import APIRouter, HTTPException, Request
@@ -9,10 +10,10 @@ from fastapi.responses import FileResponse
 
 from patchsorter.db.head_client import get_client
 from patchsorter.db.head_client.image import ImageStore
-from patchsorter.utils.fsmanager import FileStoreManager
-from .actor import ExportSessionActor, ExportImage
+
+from .actor import ExportImage, ExportSessionActor
 from .models import ExportRequest, ExportResponse
-from pathlib import Path
+
 router = APIRouter()
 
 

@@ -1,5 +1,6 @@
-from pathvalidate import validate_filepath
 from pathlib import PurePath
+
+from pathvalidate import validate_filepath
 
 
 def validate_path(value: str) -> str:

@@ -1,18 +1,22 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
 from patchsorter.api.v1.label_class.models import LabelClassResponse
-from patchsorter.config.constants import UNASSIGNED_CLASS_ID, ANNOTATION_CLASS_COLOR_PALETTES
-from patchsorter.db.head_client.models import LabelClass, build_table_name, build_pred_table_name
+from patchsorter.config.constants import (
+    ANNOTATION_CLASS_COLOR_PALETTES,
+    UNASSIGNED_CLASS_ID,
+    PredPatchSuffix,
+)
 from patchsorter.db.head_client.confusion_matrix import ConfusionMatrixStore
-
-from patchsorter.config.constants import PredPatchSuffix
-
-
+from patchsorter.db.head_client.models import (
+    LabelClass,
+    build_pred_table_name,
+    build_table_name,
+)
 
 
 class ColorPalette:
@@ -22,7 +26,7 @@ class ColorPalette:
         self._color_list = ANNOTATION_CLASS_COLOR_PALETTES['default']
         self._project_id = project_id
 
-    def get_unused_color(self, existing: List[LabelClassResponse]) -> str:
+    def get_unused_color(self, existing: list[LabelClassResponse]) -> str:
         """Return the first palette color not already used by *existing* label classes."""
         used_colors = {lc.color_code for lc in existing if lc.color_code is not None}
         for color in self._color_list:
@@ -48,8 +52,8 @@ class LabelClassStore:
         self,
         project_id: int,
         name: str,
-        color_code: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        color_code: str | None = None,
+    ) -> dict[str, Any]:
         """Insert a new label class and return the created row.
 
         The current timestamp is assigned automatically.
@@ -79,9 +83,9 @@ class LabelClassStore:
         self,
         label_class_id: int,
         project_id: int,
-        name: Optional[str] = None,
-        color_code: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        name: str | None = None,
+        color_code: str | None = None,
+    ) -> dict[str, Any]:
         """Update a label class and return the updated row.
 
         Args:
@@ -114,7 +118,7 @@ class LabelClassStore:
             row.color_code = color_code
         return {c.name: getattr(row, c.name) for c in row.__table__.columns}
 
-    def list_by_project(self, project_id: int) -> List[LabelClassResponse]:
+    def list_by_project(self, project_id: int) -> list[LabelClassResponse]:
         """Return all label classes for a project ordered by ``label_class_id``.
 
         Args:
