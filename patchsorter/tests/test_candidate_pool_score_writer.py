@@ -267,7 +267,7 @@ class TestScoreWriter:
         try:
             for score in (1.25, 2.5, 3.75):
                 w.enqueue(torch.tensor([a]), torch.tensor([score]))
-                wait_for(lambda: db_priorities(seeded["sm"])[a] == pytest.approx(score))
+                wait_for(lambda s=score: db_priorities(seeded["sm"])[a] == pytest.approx(s))
         finally:
             w.close()
 

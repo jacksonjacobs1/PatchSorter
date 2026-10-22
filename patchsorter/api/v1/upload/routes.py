@@ -30,7 +30,7 @@ def _get_actor(session_id: str) -> ray.actor.ActorHandle:
     """Look up a live session actor by its session UUID, or raise HTTP 404."""
     try:
         return ray.get_actor(f"upload_session_{session_id}")
-    except Exception:
+    except Exception:  # noqa: BLE001
         raise HTTPException(
             status_code=404,
             detail=f"Upload session '{session_id}' not found or has expired.",
@@ -138,7 +138,7 @@ def validate_upload(
                 request.patch_csv_folder,
             )
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         detail = _extract_ray_cause_message(e)
         raise HTTPException(status_code=404, detail=detail)
     return ValidateResponse(**result)

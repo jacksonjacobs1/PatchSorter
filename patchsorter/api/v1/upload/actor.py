@@ -118,7 +118,7 @@ def _validate_mixed(
             server_files = scan_folder(folder_fullpath, exts)
 
             if not server_files:
-                raise Exception(f"No valid {label} files found in {label} folder: {server_folder}")
+                raise Exception(f"No valid {label} files found in {label} folder: {server_folder}")  # noqa: TRY002
 
             merged.update(server_files)
 
@@ -129,8 +129,8 @@ def _validate_mixed(
     if not images:
         return {
             "paths": [
-                dict(image=None, mask=None, csv=None, status="error",
-                     error="No images found in session temp dir or image_folder"),
+                {"image": None, "mask": None, "csv": None, "status": "error",
+                     "error": "No images found in session temp dir or image_folder"},
             ],
             "errors": 1,
         }
@@ -147,31 +147,31 @@ def _validate_mixed(
 
         duplicate_error = _check_image_duplicate(project_id, img_path.name)
         if duplicate_error:
-            rows.append(dict(
-                image=img_rel,
-                mask=mask_rel,
-                csv=csv_rel,
-                status="error",
-                error=duplicate_error,
-                base_mag=None,
-            ))
+            rows.append({
+                "image": img_rel,
+                "mask": mask_rel,
+                "csv": csv_rel,
+                "status": "error",
+                "error": duplicate_error,
+                "base_mag": None,
+            })
             continue
 
         try:
             ts = large_image.open(str(img_path))
             base_mag = ts.getMetadata().get(LargeImageMetadataKeys.BASE_MAGNIFICATION)
-        except Exception:
+        except Exception:  # noqa: BLE001
             base_mag = None
 
         has_data = bool(mask_rel or csv_rel)
-        rows.append(dict(
-            image=img_rel,
-            mask=mask_rel,
-            csv=csv_rel,
-            status="ok" if has_data else "error",
-            error=None if has_data else f"No mask or patch CSV found for {img_path.name}",
-            base_mag=base_mag,
-        ))
+        rows.append({
+            "image": img_rel,
+            "mask": mask_rel,
+            "csv": csv_rel,
+            "status": "ok" if has_data else "error",
+            "error": None if has_data else f"No mask or patch CSV found for {img_path.name}",
+            "base_mag": base_mag,
+        })
 
     return {"paths": rows, "errors": sum(1 for r in rows if r["status"] == "error")}
 
@@ -213,7 +213,7 @@ def _validate_image_csv(csv_content: bytes, session_id: str = "", project_id: in
                     try:
                         ts = large_image.open(str(img_full))
                         base_mag = ts.getMetadata().get(LargeImageMetadataKeys.BASE_MAGNIFICATION)
-                    except Exception:
+                    except Exception:  # noqa: BLE001
                         base_mag = None
 
         mask_full = fsman.nas_read.relative_to_global(mask) if mask else None
@@ -230,14 +230,14 @@ def _validate_image_csv(csv_content: bytes, session_id: str = "", project_id: in
             errors.append(f"No mask or patch CSV found for {img}")
 
         rows.append(
-            dict(
-                image=img,
-                mask=mask,
-                csv=patch_csv,
-                status="error" if errors else "ok",
-                error="; ".join(errors) if errors else None,
-                base_mag=base_mag,
-            )
+            {
+                "image": img,
+                "mask": mask,
+                "csv": patch_csv,
+                "status": "error" if errors else "ok",
+                "error": "; ".join(errors) if errors else None,
+                "base_mag": base_mag,
+            }
         )
 
     if not rows:
@@ -415,7 +415,7 @@ class UploadSessionActor:
     def __ray_shutdown__(self) -> None:
         try:
             self._fsman.upload.cleanup_session(self._session_id)
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
 
     # ------------------------------------------------------------------

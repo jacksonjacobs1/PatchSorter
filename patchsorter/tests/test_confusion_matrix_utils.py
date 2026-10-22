@@ -102,7 +102,7 @@ def test_world_to_grid_bbox_level_downscale():
     world_size = 256
     max_level = 2
     level = 2
-    grid_scale = 2 ** (max_level - level)  # 1
+    2 ** (max_level - level)  # 1
     result = _world_to_grid_bbox(0, 0, 256, 256, level, max_level, world_size)
     assert result == (0, 0, 256, 256)
 
@@ -112,7 +112,7 @@ def test_world_to_grid_bbox_level_upscale():
     world_size = 256
     max_level = 2
     level = 0
-    grid_scale = 2 ** (max_level - level)  # 4
+    2 ** (max_level - level)  # 4
     result = _world_to_grid_bbox(0, 0, 256, 256, level, max_level, world_size)
     assert result == (0, 0, 64, 64)
 
@@ -190,7 +190,7 @@ def test_osm_tile_to_bbox_level_1():
     level = 0
     # Level 1 has 4 tiles (2x2), each covers 128x128 world coords
     result = _osm_tile_to_bbox(1, 0, 0, level, max_level, world_size)
-    i_min, j_min, i_max, j_max, wx0, wy0, wx1, wy1 = result
+    _i_min, _j_min, i_max, j_max, wx0, wy0, wx1, wy1 = result
     assert wx0 == 0.0
     assert wy0 == 0.0
     assert wx1 == 128.0
@@ -206,7 +206,7 @@ def test_osm_tile_to_bbox_level_2():
     level = 0
     # Level 2 has 16 tiles (4x4), each covers 64x64 world coords
     result = _osm_tile_to_bbox(2, 3, 3, level, max_level, world_size)
-    i_min, j_min, i_max, j_max, wx0, wy0, wx1, wy1 = result
+    i_min, j_min, _i_max, _j_max, wx0, wy0, wx1, wy1 = result
     assert wx0 == 192.0
     assert wy0 == 192.0
     assert wx1 == 256.0
@@ -222,7 +222,7 @@ def test_osm_tile_to_bbox_with_aggregation():
     level = 2
     # grid_scale = 2^(2-2) = 1, but z=0 means 1 tile covering full world
     result = _osm_tile_to_bbox(0, 0, 0, level, max_level, world_size)
-    i_min, j_min, i_max, j_max, wx0, wy0, wx1, wy1 = result
+    i_min, j_min, i_max, j_max, _wx0, _wy0, _wx1, _wy1 = result
     assert i_min == 0
     assert j_min == 0
     assert i_max == 255
@@ -236,7 +236,7 @@ def test_osm_tile_to_bbox_edge_tile():
     level = 0
     # Level 1, last tile (1, 1) is the bottom-right quadrant
     result = _osm_tile_to_bbox(1, 1, 1, level, max_level, world_size)
-    i_min, j_min, i_max, j_max, wx0, wy0, wx1, wy1 = result
+    i_min, j_min, _i_max, _j_max, wx0, wy0, wx1, wy1 = result
     assert wx0 == 128.0
     assert wy0 == 128.0
     assert wx1 == 256.0

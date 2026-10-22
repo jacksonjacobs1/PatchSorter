@@ -207,14 +207,16 @@ class PatchStore:
         if not records:
             return 0
         raw_conn = self._session.connection().connection
-        with raw_conn.cursor() as cur:
-            with cur.copy(
+        with (
+            raw_conn.cursor() as cur,
+            cur.copy(
                 f"COPY {self.table_name} "
                 f"(patch_uid, label_class_id, image_id, downsample_factor, centroid_x, centroid_y, polygon, patch_image) "
                 f"FROM STDIN"
-            ) as copy:
-                for row in records:
-                    copy.write_row(row)
+            ) as copy,
+        ):
+            for row in records:
+                copy.write_row(row)
         return len(records)
 
     def fetch(

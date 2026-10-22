@@ -58,8 +58,8 @@ def serve_tile(
     z: int,
     x: int,
     y: int,
-    sum_over: SumOver = Query(default=SumOver.gt),
-    lp: list[str] | None = Query(default=None),
+    sum_over: SumOver = Query(default=SumOver.gt),  # noqa: B008
+    lp: list[str] | None = Query(default=None),  # noqa: B008
 ) -> Response:
     client = get_head_client()
     with client.get_session() as session:
@@ -114,7 +114,7 @@ def get_confusion_matrix(
     y_min: float = Query(...),
     x_max: float = Query(...),
     y_max: float = Query(...),
-    lp: list[str] | None = Query(default=None),
+    lp: list[str] | None = Query(default=None),  # noqa: B008
 ) -> ConfusionMatrixResponse:
     try:
         client = get_head_client()
@@ -154,7 +154,7 @@ def get_confusion_matrix(
             )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"DB error for confusion matrix: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -28,7 +28,7 @@ def _get_actor(session_id: str) -> ray.actor.ActorHandle:
     """Look up a live session actor by its session UUID, or raise HTTP 404."""
     try:
         return ray.get_actor(f"export_session_{session_id}")
-    except Exception:
+    except Exception:  # noqa: BLE001
         raise HTTPException(
             status_code=404,
             detail=f"Export session '{session_id}' not found or has expired.",

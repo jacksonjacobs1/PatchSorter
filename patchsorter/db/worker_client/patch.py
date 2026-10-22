@@ -174,14 +174,16 @@ class WorkerPatchStore:
             return 0
         shard_table = build_pred_table_name(self.project_id, PredPatchSuffix.LATEST, shard_id)
         raw_conn = self._session.connection().connection
-        with raw_conn.cursor() as cur:
-            with cur.copy(
+        with (
+            raw_conn.cursor() as cur,
+            cur.copy(
                 f"COPY {shard_table} "
                 f"(patch_id, embed_x, embed_y, grid_cell_i, grid_cell_j, event_ts, label_class_id) "
                 f"FROM STDIN"
-            ) as copy:
-                for row in records:
-                    copy.write_row(row)
+            ) as copy,
+        ):
+            for row in records:
+                copy.write_row(row)
         return len(records)
 
     # ------------------------------------------------------------------ #

@@ -22,7 +22,7 @@ def _get_actor_handle(project_id: int):
     """Return the actor handle, or None if it does not exist."""
     try:
         return ray.get_actor(dl_actor_name(project_id))
-    except Exception:
+    except Exception:  # noqa: BLE001
         return None
 
 
@@ -46,7 +46,7 @@ def start_processing(project_id: int) -> None:
             if not ray.get(existing.get_termination_signal.remote()):
                 ray.get(existing.set_termination_signal.remote(True))
                 logger.info("Signalled termination on existing actor for project %d.", project_id)
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
 
     # Wait for actor to leave Ray's namespace; force-kill on the final retry

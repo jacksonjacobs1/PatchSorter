@@ -17,7 +17,7 @@ def _export_patch_csv(
     image: ExportImage,
     project_id: int,
     session_id: str,
-    label_class_ids: list[int] = [],
+    label_class_ids: list[int] | None = None,
     batch_size: int = 1000,
 ) -> None:
     """Export patch labels for a single image as a CSV file.
@@ -29,6 +29,8 @@ def _export_patch_csv(
     and HybridPatchIterable): columns are `patch_id, patch_uid, label_class_id, centroid_x, centroid_y`.
     Filename follows the convention `patches_{image_id}_{image_name}.csv` to match the download URL.
     """
+    if label_class_ids is None:
+        label_class_ids = []
     fsman = FileStoreManager()
     session_dir = fsman.export.get_session_dir(session_id)
     session_dir.mkdir(parents=True, exist_ok=True)
@@ -86,7 +88,9 @@ class ExportSessionActor:
     session at a time.
     """
 
-    def __init__(self, project_id: int, session_id: str, label_class_ids: list[int] = []) -> None:
+    def __init__(self, project_id: int, session_id: str, label_class_ids: list[int] | None = None) -> None:
+        if label_class_ids is None:
+            label_class_ids = []
         self._project_id = project_id
         self._session_id = session_id
         self._fsman = FileStoreManager()
@@ -96,10 +100,10 @@ class ExportSessionActor:
     def __ray_shutdown__(self) -> None:
         try:
             self._fsman.export.cleanup_session(self._session_id)
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
 
-    def dispatch_tasks(self, images: list[ExportImage], label_class_ids: list[int] = []) -> None:
+    def dispatch_tasks(self, images: list[ExportImage], label_class_ids: list[int] | None = None) -> None:
         """Dispatch _export_patch_csv once per image.
 
         Each call to ``_export_patch_csv.remote()`` creates a Ray child task
@@ -113,6 +117,8 @@ class ExportSessionActor:
         Blocks until all child tasks complete.
         """
         # Dispatch one child task per image, naming each for visibility
+        if label_class_ids is None:
+            label_class_ids = []
         child_refs = [
             _export_patch_csv
                 .options(name=f"Export {img.image_name}")

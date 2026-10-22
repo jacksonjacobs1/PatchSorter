@@ -77,3 +77,16 @@ torchvision = { index = "pytorch-cu126" }
 name = "pytorch-cu126"
 url = "https://download.pytorch.org/whl/cu126"
 explicit = true
+
+[tool.pyrefly]
+project-includes = [
+    "patchsorter/**/*.py*",
+    "patchsorter/**/*.ipynb",
+]
+
+search_path = [
+    "patchsorter/"
+]
+
+[tool.ruff]
+include = ["patchsorter/**/*.py", "patchsorter/**/*.ipynb"]

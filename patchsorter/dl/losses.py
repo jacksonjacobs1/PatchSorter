@@ -482,7 +482,7 @@ def neighborhood_loss(
     """
     global _neighborhood_ema_temp
 
-    V, B, D = z_batch.shape
+    V, B, _D = z_batch.shape
     k = min(k, B - 1)
     if k < 1:
         print(f"Warning: k={k} is too small for batch size B={B}, skipping neighborhood loss.")

@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
         from .upload.gc import start_gc_thread
 
         start_gc_thread()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         log.warning("Ray initialization skipped — upload sessions will not be available: %s", exc)
 
     # Initialize the database schema on startup.
@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
 
         DatabaseManager(get_client()).setup_schema()
         log.info("Database schema initialized.")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         log.warning("Database schema setup failed (database may be unavailable): %s", exc)
 
     yield

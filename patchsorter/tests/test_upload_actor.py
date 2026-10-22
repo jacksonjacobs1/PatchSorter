@@ -50,7 +50,7 @@ def _write_server_file(folder, name):
 
 def test_folder_mode_all_labels(tmp_path):
     """All images have matching mask and CSV."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     server_img = tmp_path / "server_imgs"
     server_mask = tmp_path / "server_masks"
     server_csv = tmp_path / "server_csvs"
@@ -82,7 +82,7 @@ def test_folder_mode_all_labels(tmp_path):
 
 def test_folder_mode_only_mask(tmp_path):
     """Only mask folder provided — CSV rows should be empty."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     server_img = tmp_path / "server_imgs"
     server_mask = tmp_path / "server_masks"
 
@@ -103,7 +103,7 @@ def test_folder_mode_only_mask(tmp_path):
 
 def test_folder_mode_only_csv(tmp_path):
     """Only patch_csv folder provided — mask rows should be empty."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     server_img = tmp_path / "server_imgs"
     server_csv = tmp_path / "server_csvs"
 
@@ -124,7 +124,7 @@ def test_folder_mode_only_csv(tmp_path):
 
 def test_folder_mode_neither_label(tmp_path):
     """No mask or CSV folders — all rows should error."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     server_img = tmp_path / "server_imgs"
 
     _write_server_file(server_img, "img1.tif")
@@ -140,7 +140,7 @@ def test_folder_mode_neither_label(tmp_path):
 
 def test_folder_mode_empty_image_folder(tmp_path):
     """Empty image folder raises Exception."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     empty_img = tmp_path / "empty_imgs"
     empty_img.mkdir()
 
@@ -153,7 +153,7 @@ def test_folder_mode_empty_image_folder(tmp_path):
 
 def test_folder_mode_missing_image_folder(tmp_path):
     """Non-existent image folder raises Exception."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
 
     with pytest.raises(Exception, match="Image folder does not exist"):
         _validate_mixed(
@@ -164,7 +164,7 @@ def test_folder_mode_missing_image_folder(tmp_path):
 
 def test_folder_mode_multiple_images_partial_labels(tmp_path):
     """Multiple images with partial mask/CSV coverage."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     server_img = tmp_path / "server_imgs"
     server_mask = tmp_path / "server_masks"
     server_csv = tmp_path / "server_csvs"
@@ -194,7 +194,7 @@ def test_folder_mode_multiple_images_partial_labels(tmp_path):
 
 def test_folder_mode_stem_matching_case_insensitive(tmp_path):
     """Mask/CSV matching is case-insensitive on extension."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     server_img = tmp_path / "server_imgs"
     server_mask = tmp_path / "server_masks"
 
@@ -219,7 +219,7 @@ def test_folder_mode_stem_matching_case_insensitive(tmp_path):
 
 def test_file_drop_all_labels(tmp_path):
     """All labels uploaded to session temp dir."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     _write_image(session, "img1.tif")
     _write_image(session, "img2.tif")
     _write_mask(session, "img1")
@@ -241,7 +241,7 @@ def test_file_drop_all_labels(tmp_path):
 
 def test_file_drop_only_mask(tmp_path):
     """Only mask uploaded — CSV rows should be empty."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     _write_image(session, "img1.tif")
     _write_mask(session, "img1")
 
@@ -255,7 +255,7 @@ def test_file_drop_only_mask(tmp_path):
 
 def test_file_drop_only_csv(tmp_path):
     """Only patch CSV uploaded — mask rows should be empty."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     _write_image(session, "img1.tif")
     _write_csv(session, "img1")
 
@@ -269,7 +269,7 @@ def test_file_drop_only_csv(tmp_path):
 
 def test_file_drop_neither_label(tmp_path):
     """No labels uploaded — all rows should error."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     _write_image(session, "img1.tif")
 
     result = _validate_mixed(str(session))
@@ -280,7 +280,7 @@ def test_file_drop_neither_label(tmp_path):
 
 def test_file_drop_no_images(tmp_path):
     """No images in session temp dir — returns error."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     _write_mask(session, "img1")
     _write_csv(session, "img1")
 
@@ -292,7 +292,7 @@ def test_file_drop_no_images(tmp_path):
 
 def test_file_drop_unequal_lists(tmp_path):
     """Uploaded more masks than images — extra masks are ignored."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     _write_image(session, "img1.tif")
     _write_image(session, "img2.tif")
     _write_mask(session, "img1")
@@ -311,7 +311,7 @@ def test_file_drop_unequal_lists(tmp_path):
 
 def test_mixed_file_drop_images_server_mask(tmp_path):
     """Images uploaded, mask on server — both should be matched."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     _write_image(session, "img1.tif")
     _write_image(session, "img2.tif")
 
@@ -332,7 +332,7 @@ def test_mixed_file_drop_images_server_mask(tmp_path):
 
 def test_mixed_file_drop_images_server_csv(tmp_path):
     """Images uploaded, CSV on server — both should be matched."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     _write_image(session, "img1.tif")
     _write_image(session, "img2.tif")
 
@@ -353,7 +353,7 @@ def test_mixed_file_drop_images_server_csv(tmp_path):
 
 def test_mixed_file_drop_images_both_server_labels(tmp_path):
     """Images uploaded, mask+CSV on server — all matched."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     _write_image(session, "img1.tif")
     _write_image(session, "img2.tif")
 
@@ -377,7 +377,7 @@ def test_mixed_file_drop_images_both_server_labels(tmp_path):
 
 def test_mixed_server_images_file_drop_masks(tmp_path):
     """Images on server, masks uploaded — both should be matched."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     server_img = tmp_path / "server_imgs"
     _write_server_file(server_img, "img1.tif")
     _write_server_file(server_img, "img2.tif")
@@ -399,7 +399,7 @@ def test_mixed_server_images_file_drop_masks(tmp_path):
 
 def test_mixed_partial_server_match(tmp_path):
     """Some images have server labels, others have uploaded labels."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     _write_image(session, "img1.tif")
     _write_image(session, "img2.tif")
 
@@ -428,7 +428,7 @@ def test_mixed_partial_server_match(tmp_path):
 
 def test_empty_all_inputs(tmp_path):
     """No images, no folders — returns error."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
 
     result = _validate_mixed(str(session))
 
@@ -438,7 +438,7 @@ def test_empty_all_inputs(tmp_path):
 
 def test_whitespace_filenames(tmp_path):
     """Whitespace in filenames is preserved (not stripped)."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     _write_image(session, "  img1  .tif")
     _write_mask(session, "  img1  ")
 
@@ -451,7 +451,7 @@ def test_whitespace_filenames(tmp_path):
 
 def test_duplicate_stems_server_overwrites(tmp_path):
     """When same stem exists in both server and temp dir, server path wins."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     _write_image(session, "img1.tif")
     _write_mask(session, "img1")
 
@@ -476,7 +476,7 @@ def test_duplicate_stems_server_overwrites(tmp_path):
 
 def test_no_mask_no_csv_folder(tmp_path):
     """Both mask and CSV folders missing but both have uploaded labels."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     _write_image(session, "img1.tif")
     _write_mask(session, "img1")
     _write_csv(session, "img1")
@@ -490,7 +490,7 @@ def test_no_mask_no_csv_folder(tmp_path):
 
 def test_only_mask_folder_no_csv_folder(tmp_path):
     """Only mask folder provided, no CSV folder — mask found, csv empty."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     server_img = tmp_path / "server_imgs"
     server_mask = tmp_path / "server_masks"
 
@@ -510,7 +510,7 @@ def test_only_mask_folder_no_csv_folder(tmp_path):
 
 def test_only_csv_folder_no_mask_folder(tmp_path):
     """Only CSV folder provided, no mask folder — CSV found, mask empty."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     server_img = tmp_path / "server_imgs"
     server_csv = tmp_path / "server_csvs"
 
@@ -530,7 +530,7 @@ def test_only_csv_folder_no_mask_folder(tmp_path):
 
 def test_both_folders_empty(tmp_path):
     """Both folders exist but are empty — raises Exception for empty image folder."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     empty_img = tmp_path / "empty_img"
     empty_mask = tmp_path / "empty_mask"
     empty_csv = tmp_path / "empty_csv"
@@ -549,7 +549,7 @@ def test_both_folders_empty(tmp_path):
 
 def test_mixed_both_sources_same_stem(tmp_path):
     """Same stem in both temp dir and server — server path should win for that type."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     _write_image(session, "img1.tif")
     _write_mask(session, "img1")
 
@@ -572,7 +572,7 @@ def test_mixed_both_sources_same_stem(tmp_path):
 
 def test_nonexistent_mask_folder_raises(tmp_path):
     """Non-existent mask folder raises Exception."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     _write_image(session, "img1.tif")
     _write_mask(session, "img1")
 
@@ -585,7 +585,7 @@ def test_nonexistent_mask_folder_raises(tmp_path):
 
 def test_nonexistent_csv_folder_raises(tmp_path):
     """Non-existent CSV folder raises Exception."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     _write_image(session, "img1.tif")
     _write_csv(session, "img1")
 
@@ -598,7 +598,7 @@ def test_nonexistent_csv_folder_raises(tmp_path):
 
 def test_many_images_sorted(tmp_path):
     """Many images should be sorted alphabetically by stem."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     for name in ["z.tif", "a.tif", "m.tif"]:
         _write_image(session, name)
 
@@ -617,7 +617,7 @@ def test_many_images_sorted(tmp_path):
 
 def test_missing_image_folder_raises(tmp_path):
     """Non-existent image_folder should raise Exception."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     _write_image(session, "img1.tif")
 
     with pytest.raises(Exception, match="Image folder does not exist"):
@@ -629,7 +629,7 @@ def test_missing_image_folder_raises(tmp_path):
 
 def test_empty_image_folder_raises(tmp_path):
     """Image_folder with no valid images should raise Exception."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     server_img = tmp_path / "server_imgs"
     server_img.mkdir(parents=True)
     (server_img / "readme.txt").write_text("not an image")
@@ -643,7 +643,7 @@ def test_empty_image_folder_raises(tmp_path):
 
 def test_missing_mask_folder_raises(tmp_path):
     """Non-existent mask_folder should raise Exception."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     server_img = tmp_path / "server_imgs"
     _write_server_file(server_img, "img1.tif")
 
@@ -657,7 +657,7 @@ def test_missing_mask_folder_raises(tmp_path):
 
 def test_empty_mask_folder_raises(tmp_path):
     """Mask_folder with no .geojson files should raise Exception."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     server_img = tmp_path / "server_imgs"
     server_mask = tmp_path / "server_masks"
     _write_server_file(server_img, "img1.tif")
@@ -674,7 +674,7 @@ def test_empty_mask_folder_raises(tmp_path):
 
 def test_missing_csv_folder_raises(tmp_path):
     """Non-existent patch_csv_folder should raise Exception."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     server_img = tmp_path / "server_imgs"
     _write_server_file(server_img, "img1.tif")
 
@@ -688,7 +688,7 @@ def test_missing_csv_folder_raises(tmp_path):
 
 def test_empty_csv_folder_raises(tmp_path):
     """Patch_csv_folder with no .csv files should raise Exception."""
-    session, session_id = _create_session_dirs(tmp_path)
+    session, _session_id = _create_session_dirs(tmp_path)
     server_img = tmp_path / "server_imgs"
     server_csv = tmp_path / "server_csvs"
     _write_server_file(server_img, "img1.tif")

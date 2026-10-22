@@ -173,7 +173,7 @@ class HybridPatchIterable(GeometryIterable):
 
             yield (geometry, label, patch_uuid)
 
-def create_patch_iterator(mask_path: Path = None, csv_path: Path = None) -> GeometryIterable:
+def create_patch_iterator(mask_path: Path | None = None, csv_path: Path | None = None) -> GeometryIterable:
     """Factory function to create the appropriate GeometryIterable based on input files.
 
     Args:

@@ -33,32 +33,38 @@ class DatabaseManager:
     def get_worker_nodes(self) -> list[dict[str, Any]]:
         from psycopg.rows import dict_row
 
-        with self.sm.get_connection() as conn:
-            with conn.cursor(row_factory=dict_row) as cur:
-                cur.execute("SELECT * FROM citus_get_active_worker_nodes();")
-                return cur.fetchall()
+        with (
+            self.sm.get_connection() as conn,
+            conn.cursor(row_factory=dict_row) as cur,
+        ):
+            cur.execute("SELECT * FROM citus_get_active_worker_nodes();")
+            return cur.fetchall()
 
 
     def drop_all_tables(self) -> None:
         # check if the project table exists:
-        with self.sm.get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name = 'project';")
-                if cur.fetchone() is None:
-                    print("No tables found, skipping drop_all_tables.")
-                    return
+        with (
+            self.sm.get_connection() as conn,
+            conn.cursor() as cur,
+        ):
+            cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name = 'project';")
+            if cur.fetchone() is None:
+                print("No tables found, skipping drop_all_tables.")
+                return
         # Drop base tables via ORM.
         Base.metadata.drop_all(self.sm.engine)
         # Drop per-project tables (project{N}_*) via raw SQL.
-        with self.sm.get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT table_schema, table_name FROM information_schema.tables "
-                    "WHERE table_schema = 'public' AND table_name LIKE 'project%_%%';"
-                )
-                for (schema, tbl) in cur.fetchall():
-                    cur.execute(f"DROP TABLE IF EXISTS {tbl} CASCADE;")
-                    print(f"Dropped {schema}.{tbl}")
+        with (
+            self.sm.get_connection() as conn,
+            conn.cursor() as cur,
+        ):
+            cur.execute(
+                "SELECT table_schema, table_name FROM information_schema.tables "
+                "WHERE table_schema = 'public' AND table_name LIKE 'project%_%%';"
+            )
+            for (schema, tbl) in cur.fetchall():
+                cur.execute(f"DROP TABLE IF EXISTS {tbl} CASCADE;")
+                print(f"Dropped {schema}.{tbl}")
             conn.commit()
 
     def setup_schema(self) -> None:
@@ -113,12 +119,12 @@ class DatabaseManager:
                 try:
                     # Citus propagates extensions to workers automatically.
                     cur.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     print(f"PostGIS extension creation failed: {e}")
 
                 try:
                     cur.execute("CREATE EXTENSION IF NOT EXISTS citus;")
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     print(f"Citus extension creation failed: {e}")
 
                 cur.execute(seed_statement)
@@ -126,7 +132,7 @@ class DatabaseManager:
                 for stmt in distribution_statements:
                     try:
                         cur.execute(stmt)
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001
                         print(f"Distribution command failed (may already be distributed): {e}")
                 
 
@@ -202,7 +208,7 @@ class DatabaseManager:
                 try:
                     cur.execute(stmt)
                     print(f"Executed distribution command for project {n}: {stmt}")
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001
                     print(f"Distribution command failed (may already be distributed): {exc}")
 
     def setup_triggers(self, project_id: int, raw_conn) -> None:
@@ -515,7 +521,7 @@ class DatabaseManager:
             with conn.cursor() as cur:
                 try:
                     cur.execute("SET citus.multi_shard_modify_mode TO 'sequential';")
-                except Exception:
+                except Exception:  # noqa: BLE001, S110
                     pass
 
             self.create_project_tables(project_id, conn)

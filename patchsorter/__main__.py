@@ -18,13 +18,14 @@ def run_server():
 
 def run_ui():
     client_dir = Path(__file__).parent / "client"
-    result = subprocess.run(["npm", "run", "dev"], cwd=client_dir)
+    result = subprocess.run(["npm", "run", "dev"], check=False, cwd=client_dir)
     sys.exit(result.returncode)
 
 def autobuild_docs():
     basedir = Path(__file__).parent.parent
     result = subprocess.run(
         ["sphinx-autobuild", "docs/source", "docs/_build/html", "-a", "--open-browser"],
+        check=False,
         cwd=basedir,
     )
     sys.exit(result.returncode)

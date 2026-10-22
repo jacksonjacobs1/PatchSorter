@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 from sqlalchemy import text
@@ -303,7 +303,7 @@ class TestPaginatedPredJoin:
 # ---------------------------------------------------------------------------
 
 class TestGetPatchesWithinGridBbox:
-    BBOX = dict(i_min=2, i_max=3, j_min=3, j_max=4)
+    BBOX: ClassVar[dict[str, int]] = {"i_min": 2, "i_max": 3, "j_min": 3, "j_max": 4}
 
     def test_returns_in_bbox_patches(self, seeded_preds, db_session):
         """All four in-bbox patches are returned."""
@@ -481,7 +481,7 @@ class TestLabelPairsFilter:
     """Tests for label_pairs filtering in _paginated_pred_join, fetch_predicted,
     and get_patches_within_grid_bbox."""
 
-    BBOX = dict(i_min=2, i_max=3, j_min=3, j_max=4)
+    BBOX: ClassVar[dict[str, int]] = {"i_min": 2, "i_max": 3, "j_min": 3, "j_max": 4}
 
     def test_single_concordant_pair(self, seeded_preds_lp, db_session):
         """label_pairs=[(tumor, tumor)] returns only concordant tumor patches."""

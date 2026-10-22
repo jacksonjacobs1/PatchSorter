@@ -115,7 +115,7 @@ def request_shutdown_endpoint(project_id: int) -> None:
         request_shutdown(project_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -132,5 +132,5 @@ def set_freeze_endpoint(
         return set_freeze(project_id, frozen)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(e))

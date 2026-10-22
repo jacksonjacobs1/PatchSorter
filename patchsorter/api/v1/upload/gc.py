@@ -43,7 +43,7 @@ def _cleanup_expired_sessions(ttl_seconds: int) -> None:
                 ("state", "=", "ALIVE"),
             ]
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         log.warning("GC: failed to list actors: %s", exc)
         return
 
@@ -64,13 +64,13 @@ def _cleanup_expired_sessions(ttl_seconds: int) -> None:
         log.info("GC: terminating expired session actor %s (age=%.0fs)", name, age_seconds)
         try:
             handle = ray.get_actor(name) if actor.get("name") else None
-        except Exception:
+        except Exception:  # noqa: BLE001
             handle = None
 
         if handle is not None:
             try:
                 ray.get(handle.__ray_terminate__.remote(), timeout=10)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 log.debug("GC: __ray_terminate__() call failed for %s: %s", name, exc)
 
     _cleanup_abandoned_temp_dirs(live_session_ids)
@@ -99,7 +99,7 @@ def _cleanup_abandoned_temp_dirs(live_session_ids: set[str]) -> None:
         try:
             shutil.rmtree(entry)
             log.info("GC: removed abandoned temp dir %s (session=%s)", entry, session_id)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             log.debug("GC: failed to remove temp dir %s: %s", entry, exc)
 
 
@@ -114,7 +114,7 @@ def start_gc_thread(
             time.sleep(interval_seconds)
             try:
                 _cleanup_expired_sessions(ttl_seconds)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 log.warning("GC: unexpected error during cleanup: %s", exc)
 
     thread = threading.Thread(target=_loop, daemon=True, name="upload-session-gc")

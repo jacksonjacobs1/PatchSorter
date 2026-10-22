@@ -54,12 +54,12 @@ class TestValidatePathInvalid:
 
     def test_current_dir_rejected(self):
         """validate_path() rejects '.' as a reserved name."""
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             validate_path(".")
 
     def test_parent_dir_rejected(self):
         """validate_path() rejects '..' as a reserved name."""
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             validate_path("..")
 
     def test_nested_absolute_path_raises(self):

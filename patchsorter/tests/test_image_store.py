@@ -4,15 +4,15 @@ from patchsorter.db.head_client import ImageStore, ProjectStore
 
 
 def _make_image(store: ImageStore, project_id: int, name: str = "slide.svs", **overrides):
-    defaults = dict(
-        project_id=project_id,
-        name=name,
-        image_path=f"/data/{name}",
-        base_mag=20.0,
-        base_width=50_000,
-        base_height=40_000,
-        deepzoom_tilesize=256,
-    )
+    defaults = {
+        "project_id": project_id,
+        "name": name,
+        "image_path": f"/data/{name}",
+        "base_mag": 20.0,
+        "base_width": 50_000,
+        "base_height": 40_000,
+        "deepzoom_tilesize": 256,
+    }
     defaults.update(overrides)
     return store.create(**defaults)
 
@@ -68,7 +68,7 @@ def test_list_by_project_ordered_by_image_id(db_session):
     i_store = ImageStore(db_session)
 
     img_a = _make_image(i_store, project["project_id"], name="a.svs")
-    img_b = _make_image(i_store, project["project_id"], name="b.svs")
+    _make_image(i_store, project["project_id"], name="b.svs")
     img_c = _make_image(i_store, project["project_id"], name="c.svs")
 
     images = i_store.list_by_project(project["project_id"])

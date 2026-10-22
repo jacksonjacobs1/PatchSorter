@@ -29,7 +29,7 @@ def list_patches(
     y_min: float | None = Query(default=None),
     x_max: float | None = Query(default=None),
     y_max: float | None = Query(default=None),
-    lp: list[str] | None = Query(default=None, description="Label pair filter: repeat for each pair as 'gt,pred' (e.g. lp=0,1&lp=2,2)"),
+    lp: list[str] | None = Query(default=None, description="Label pair filter: repeat for each pair as 'gt,pred' (e.g. lp=0,1&lp=2,2)"),  # noqa: B008
 ) -> list[PatchResponse]:
     use_bbox = all(v is not None for v in (x_min, y_min, x_max, y_max))
     label_pairs = _parse_label_pairs(lp)
@@ -103,7 +103,7 @@ def get_patch_image(project_id: int, patch_id: int) -> Response:
 @router.post("/projects/{project_id}/patches/", response_model=LabelAssignResponse)
 def assign_labels_by_ids(
     project_id: int,
-    patch_ids: list[int] = Query(..., description="Patch IDs to relabel"),
+    patch_ids: list[int] = Query(..., description="Patch IDs to relabel"),  # noqa: B008
     label_class_id: int = Query(..., description="Ground-truth label class to assign"),
 ) -> LabelAssignResponse:
     client = get_head_client()
@@ -118,7 +118,7 @@ def assign_labels_by_polygon(
     project_id: int,
     body: LabelAssignByPolygonRequest,
     label_class_id: int = Query(..., description="Ground-truth label class to assign"),
-    lp: list[str] | None = Query(default=None, description="Label pair filter: repeat for each pair as 'gt,pred' (e.g. lp=0,1&lp=2,2)"),
+    lp: list[str] | None = Query(default=None, description="Label pair filter: repeat for each pair as 'gt,pred' (e.g. lp=0,1&lp=2,2)"),  # noqa: B008
 ) -> LabelAssignResponse:
     polygon = shape(body.polygon)
     label_pairs = _parse_label_pairs(lp)
