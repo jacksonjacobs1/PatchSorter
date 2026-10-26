@@ -9,13 +9,13 @@ repos:
         require_serial: true
       - id: ruff-format
         name: ruff format
-        entry: ruff format
+        entry: ruff format patchsorter/
         language: system
         types: [python]
         require_serial: true
       - id: pyrefly
         name: pyrefly
-        entry: pyrefly check
+        entry: pyrefly check patchsorter/
         language: system
         types: [python]
         pass_filenames: false

@@ -88,10 +88,3 @@ project-includes = [
 search_path = [
     "patchsorter/"
 ]
-
-[tool.ruff]
-include = ["patchsorter/**/*.py", "patchsorter/**/*.ipynb"]
-
-
-[tool.ruff.format]
-include = ["patchsorter/**/*.py", "patchsorter/**/*.ipynb"]
