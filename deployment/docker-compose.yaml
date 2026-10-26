@@ -33,6 +33,7 @@ services:
       CITUS_LOCAL_DB: ${CITUS_LOCAL_DB}
       CITUS_LOCAL_USER: ${CITUS_LOCAL_USER}
       CITUS_LOCAL_PASSWORD: ${CITUS_LOCAL_PASSWORD}
+      UV_PROJECT_ENVIRONMENT: /home/ray/anaconda3
     ports:
       - ${SERVER_PORT}:5000
       - ${UI_PORT}:5173
