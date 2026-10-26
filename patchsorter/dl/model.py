@@ -61,7 +61,9 @@ class JointHead(nn.Module):
         with torch.no_grad():
             self.prototypes.data.copy_(F.normalize(self.prototypes.data, dim=1))
 
-    def forward(self, z: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(
+        self, z: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Forward pass.
 
         Args:

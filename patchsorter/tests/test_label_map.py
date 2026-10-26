@@ -1,18 +1,21 @@
-# pyrefly: ignore-file
 """Unit tests for :class:`~patchsorter.dl.training.LabelMap`."""
 
+from datetime import datetime
 
-from patchsorter.db.head_client.models import LabelClass
+from patchsorter.api.v1.label_class.models import LabelClassResponse
 from patchsorter.dl.training import LabelMap
 
 
-def _make_label_class(label_class_id: int, name: str = "Class", project_id: int = 1) -> LabelClass:
-    """Helper to create a :class:`~patchsorter.db.head_client.models.LabelClass` stub."""
-    lc = LabelClass()
-    lc.label_class_id = label_class_id
-    lc.name = name
-    lc.project_id = project_id
-    return lc
+def _make_label_class(
+    label_class_id: int, name: str = "Class", project_id: int = 1
+) -> LabelClassResponse:
+    """Helper to create a :class:`LabelClassResponse` stub."""
+    return LabelClassResponse(
+        label_class_id=label_class_id,
+        project_id=project_id,
+        name=name,
+        event_ts=datetime.now(),
+    )
 
 
 class TestLabelMapNClasses:
@@ -176,4 +179,3 @@ class TestLabelMapRoundTrip:
         # All valid model indices map back to non-unassigned DB IDs
         for i in range(n):
             assert lm.from_model_index(i) != 1
-

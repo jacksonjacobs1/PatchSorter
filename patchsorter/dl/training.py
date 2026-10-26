@@ -51,8 +51,10 @@ from patchsorter.dl.utils_logging import (
 
 logger = logging.getLogger(__name__)
 
+
 def dl_actor_name(project_id: int) -> str:
     return f"dl_actor_{project_id}"
+
 
 # ---------------------------------------------------------------------------
 # Hyperparameters
@@ -66,10 +68,12 @@ NVIEWS: int = 4
 BATCH_SIZE: int = 1024
 PSEUDO_THRESH: float = 0.9
 N_TRAIN_STEPS: int = 500  # number of gradient steps per cycle (training inner loop)
-LOG_EVERY: int = 100      # log TensorBoard scalars every N batches
+LOG_EVERY: int = 100  # log TensorBoard scalars every N batches
 FROZEN_POLL_INTERVAL_S: float = 2.0
 POLL_FROZEN_EVERY_N_BATCHES: int = 10  # check for unfreeze every N batches
-NBATCH_PSEUDO_WARMUP: int = 50  # batches before adaptive-threshold pseudo-labeling kicks in
+NBATCH_PSEUDO_WARMUP: int = (
+    50  # batches before adaptive-threshold pseudo-labeling kicks in
+)
 
 # Enriched dataloader / candidate pool
 GT_ENRICHMENT: float = 0.10  # enriched batch size, as a fraction of BATCH_SIZE
@@ -109,12 +113,10 @@ _IDEAL_SPACING = GRID_SIZE / math.sqrt(BATCH_SIZE)
 REPULSION_MARGIN: float = _IDEAL_SPACING * 10.5
 
 
-
-
-
 # ---------------------------------------------------------------------------
 # LabelMap — bidirectional DB ID <-> model class index mapping
 # ---------------------------------------------------------------------------
+
 
 class LabelMap:
     """Bidirectional mapping between DB ``label_class_id`` and model class indices.
@@ -138,8 +140,12 @@ class LabelMap:
             [lc for lc in label_classes if lc.label_class_id != UNASSIGNED_CLASS_ID],
             key=lambda lc: lc.label_class_id,
         )
-        self._id_to_idx: dict[int, int] = {lc.label_class_id: i for i, lc in enumerate(valid)}
-        self._idx_to_id: dict[int, int] = {i: lc.label_class_id for i, lc in enumerate(valid)}
+        self._id_to_idx: dict[int, int] = {
+            lc.label_class_id: i for i, lc in enumerate(valid)
+        }
+        self._idx_to_id: dict[int, int] = {
+            i: lc.label_class_id for i, lc in enumerate(valid)
+        }
 
     @property
     def id_to_idx(self) -> dict[int, int]:
@@ -185,9 +191,11 @@ class LabelMap:
         """
         return self._idx_to_id.get(model_idx, UNASSIGNED_CLASS_ID)
 
+
 # ---------------------------------------------------------------------------
 # Ray Train worker function
 # ---------------------------------------------------------------------------
+
 
 def _concat_views_major(a: torch.Tensor, b: torch.Tensor, nviews: int) -> torch.Tensor:
     """Concatenate two views-major batches along the batch dimension.
@@ -205,7 +213,9 @@ def _concat_views_major(a: torch.Tensor, b: torch.Tensor, nviews: int) -> torch.
     return combined.reshape((Ba + Bb) * nviews, *a.shape[1:])
 
 
-def concat_batches(finite_batch: TrainingBatch, infinite_batch: TrainingBatch, nviews: int) -> TrainingBatch:
+def concat_batches(
+    finite_batch: TrainingBatch, infinite_batch: TrainingBatch, nviews: int
+) -> TrainingBatch:
     """Concatenate a sequential batch with an enriched batch (GPU-side, views-major).
 
     The resulting :class:`TrainingBatch` has ``raw_labels``/``imgs`` ordered
@@ -236,7 +246,9 @@ def _warm_start_projection_head(
     if world_rank == 0:
         peek_batch = next(iter(loader))
         imgs = peek_batch.imgs.float().div_(255.0).to(device)
-        initialize_projection_from_batch(raw_backbone, raw_head, imgs, grid_size=GRID_SIZE)
+        initialize_projection_from_batch(
+            raw_backbone, raw_head, imgs, grid_size=GRID_SIZE
+        )
 
     dist.broadcast(raw_head.proj_fc[0].weight.data, src=0)  # pyrefly: ignore
     dist.broadcast(raw_head.proj_fc[0].bias.data, src=0)  # pyrefly: ignore
@@ -275,8 +287,12 @@ def train_worker(config: dict[str, Any]) -> None:
     projection_space_size: int = app_config.get("world_size", 4096)
     GRID_SIZE_SCALE: float = projection_space_size / GRID_SIZE
     enriched_batch_size: int = max(1, int(patches_per_batch * GT_ENRICHMENT))
-    dataloader_workers_sequential: int = app_config.get("dl_num_workers_sequential", DATALOADER_NUM_WORKERS_SEQUENTIAL)
-    dataloader_workers_enriched: int = app_config.get("dl_num_workers_enriched", DATALOADER_NUM_WORKERS_ENRICHED)
+    dataloader_workers_sequential: int = app_config.get(
+        "dl_num_workers_sequential", DATALOADER_NUM_WORKERS_SEQUENTIAL
+    )
+    dataloader_workers_enriched: int = app_config.get(
+        "dl_num_workers_enriched", DATALOADER_NUM_WORKERS_ENRICHED
+    )
     head_sm = head_client.get_client(is_local=False)
     worker_sm = worker_client.get_client()
 
@@ -314,7 +330,9 @@ def train_worker(config: dict[str, Any]) -> None:
 
     # model = model.half()  # TODO: test with .half()
     backbone = ray.train.torch.prepare_model(backbone, device, parallel_strategy="ddp")
-    joint_head = ray.train.torch.prepare_model(joint_head, device, parallel_strategy="ddp")
+    joint_head = ray.train.torch.prepare_model(
+        joint_head, device, parallel_strategy="ddp"
+    )
     backbone.train()
     joint_head.train()
 
@@ -328,7 +346,9 @@ def train_worker(config: dict[str, Any]) -> None:
     scaler = torch.amp.GradScaler("cuda")
 
     label_tracker = LabeledRateTracker(n_classes, momentum=0.9, device=str(device))
-    adaptive_thresh = AdaptiveThreshold(n_classes, base_thresh=PSEUDO_THRESH, device=str(device))
+    adaptive_thresh = AdaptiveThreshold(
+        n_classes, base_thresh=PSEUDO_THRESH, device=str(device)
+    )
     score_writer = ScoreWriter(head_sm, project_id)
 
     writer = init_summary_writer(world_rank)
@@ -342,19 +362,32 @@ def train_worker(config: dict[str, Any]) -> None:
 
             wait_for_unfreeze(actor)
             if ray.get(actor.get_termination_signal.remote()):
-                logger.info("[Worker %d (local %d)] Received termination signal. Shutting down.", world_rank, local_rank)
+                logger.info(
+                    "[Worker %d (local %d)] Received termination signal. Shutting down.",
+                    world_rank,
+                    local_rank,
+                )
                 return
 
             # Discover locally assigned shards on each cycle since table rotation changes shard placements.
             with head_sm.get_session() as session:
                 patch_store = PatchStore(project_id, session)
-                local_worker_shard_map = patch_store.get_local_worker_shard_map(context.get_local_world_size(), local_rank, local_node_group_id)
+                local_worker_shard_map = patch_store.get_local_worker_shard_map(
+                    context.get_local_world_size(), local_rank, local_node_group_id
+                )
                 # Enrichment sampling draws from every shard on this node, not just this worker's
                 # partition — unlike the sequential pass it doesn't need exactly-once coverage.
-                local_node_shard_map = patch_store.get_local_node_shard_map(local_node_group_id)
+                local_node_shard_map = patch_store.get_local_node_shard_map(
+                    local_node_group_id
+                )
 
             cycle += 1
-            logger.info("[Worker %d (local %d)] Starting cycle %d.", world_rank, local_rank, cycle)
+            logger.info(
+                "[Worker %d (local %d)] Starting cycle %d.",
+                world_rank,
+                local_rank,
+                cycle,
+            )
 
             # -------------------------------------------------------------------
             # Dual dataloader pass — sequential (exhaustible, saves predictions)
@@ -366,27 +399,54 @@ def train_worker(config: dict[str, Any]) -> None:
             joint_head.train()
 
             sequential_loader = DataLoader(
-                IterableShardDataset(project_id, local_worker_shard_map, patches_per_batch, patch_size, NVIEWS, label_map),
+                IterableShardDataset(
+                    project_id,
+                    local_worker_shard_map,
+                    patches_per_batch,
+                    patch_size,
+                    NVIEWS,
+                    label_map,
+                ),
                 batch_size=None,
                 num_workers=dataloader_workers_sequential,
-                multiprocessing_context="spawn" if dataloader_workers_sequential > 0 else None,
-                worker_init_fn=worker_init_fn if dataloader_workers_sequential > 0 else None,
+                multiprocessing_context="spawn"
+                if dataloader_workers_sequential > 0
+                else None,
+                worker_init_fn=worker_init_fn
+                if dataloader_workers_sequential > 0
+                else None,
                 persistent_workers=dataloader_workers_sequential > 0,
             )
 
             if cycle == 1:
-                logger.info("[Worker %d (local %d)] Warm-starting projection head via PCA.", world_rank, local_rank)
-                _warm_start_projection_head(backbone, joint_head, sequential_loader, device, world_rank)
+                logger.info(
+                    "[Worker %d (local %d)] Warm-starting projection head via PCA.",
+                    world_rank,
+                    local_rank,
+                )
+                _warm_start_projection_head(
+                    backbone, joint_head, sequential_loader, device, world_rank
+                )
 
             enriched_loader = DataLoader(
                 EnrichedInfiniteIterableDataset(
-                    project_id, local_node_shard_map, enriched_batch_size, patch_size, NVIEWS, label_map,
-                    pool_size=GT_POOL_SIZE, refresh_every_batches=GT_POOL_UPDATE_INTERVAL,
+                    project_id,
+                    local_node_shard_map,
+                    enriched_batch_size,
+                    patch_size,
+                    NVIEWS,
+                    label_map,
+                    pool_size=GT_POOL_SIZE,
+                    refresh_every_batches=GT_POOL_UPDATE_INTERVAL,
                 ),
                 batch_size=None,
                 num_workers=dataloader_workers_enriched,
-                multiprocessing_context="spawn" if dataloader_workers_enriched > 0 else None,
-                worker_init_fn=worker_init_fn if dataloader_workers_enriched > 0 else None,
+                multiprocessing_context="spawn"
+                if dataloader_workers_enriched > 0
+                else None,
+                worker_init_fn=worker_init_fn
+                if dataloader_workers_enriched > 0
+                else None,
                 persistent_workers=dataloader_workers_enriched > 0,
             )
             enriched_iter = iter(enriched_loader)
@@ -395,7 +455,11 @@ def train_worker(config: dict[str, Any]) -> None:
                 if i % POLL_FROZEN_EVERY_N_BATCHES == 0:
                     wait_for_unfreeze(actor)
                     if ray.get(actor.get_termination_signal.remote()):
-                        logger.info("[Worker %d (local %d)] Received termination signal. Shutting down.", world_rank, local_rank)
+                        logger.info(
+                            "[Worker %d (local %d)] Received termination signal. Shutting down.",
+                            world_rank,
+                            local_rank,
+                        )
                         return
 
                 shard_id = finite_batch.shard_id
@@ -408,82 +472,118 @@ def train_worker(config: dict[str, Any]) -> None:
                     batch = finite_batch
 
                 B = len(batch.patch_ids)
-                imgs_tensor = batch.imgs.float().div_(255.0).to(device)  # [V*B, C, H, W]
+                imgs_tensor = (
+                    batch.imgs.float().div_(255.0).to(device)
+                )  # [V*B, C, H, W]
                 raw_labels = batch.raw_labels  # [B]
                 labels = raw_labels.repeat(NVIEWS).to(device)  # [V*B]
 
                 optimizer.zero_grad()
-                with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=True):
-                    z = backbone(imgs_tensor)              # [V*B, D]
-                    emb, coords, logits = joint_head(z)   # [V*B, embed_dim], [V*B, 2], [V*B, C]
+                with torch.autocast(
+                    device_type=device.type, dtype=torch.float16, enabled=True
+                ):
+                    z = backbone(imgs_tensor)  # [V*B, D]
+                    emb, coords, logits = joint_head(
+                        z
+                    )  # [V*B, embed_dim], [V*B, 2], [V*B, C]
 
                     emb_norm = torch.nn.functional.normalize(emb, dim=-1)
-                    proj_emb = emb_norm.view(NVIEWS, B, -1)   # [V, B, embed_dim]
+                    proj_emb = emb_norm.view(NVIEWS, B, -1)  # [V, B, embed_dim]
                     proj_coords = coords.view(NVIEWS, B, -1)  # [V, B, 2]
 
                     prototypes = getattr(joint_head, "module", joint_head).prototypes
                     swav_emb_loss = swav_loss(
-                        proj_emb, prototypes=prototypes,  # pyrefly: ignore
-                        kmeans_iters=SWAV_KMEANS_ITERS, sinkhorn_iters=SWAV_SINKHORN_ITERS,
+                        proj_emb,
+                        prototypes=prototypes,  # pyrefly: ignore
+                        kmeans_iters=SWAV_KMEANS_ITERS,
+                        sinkhorn_iters=SWAV_SINKHORN_ITERS,
                         eps=SWAV_EPS,
                     )
 
                     # Coordinate consistency across views
                     anchor_coords = proj_coords[0:1]  # [1, B, 2]
-                    coord_consistency = ((proj_coords[1:] - anchor_coords) ** 2).sum(dim=-1).mean()
+                    coord_consistency = (
+                        ((proj_coords[1:] - anchor_coords) ** 2).sum(dim=-1).mean()
+                    )
 
                     # Coordinate contrastive: push different samples apart
-                    dists = torch.cdist(anchor_coords.squeeze(0), anchor_coords.squeeze(0))  # [B, B]
+                    dists = torch.cdist(
+                        anchor_coords.squeeze(0), anchor_coords.squeeze(0)
+                    )  # [B, B]
                     off_diag = ~torch.eye(B, dtype=torch.bool, device=device)
                     coord_contrastive = (1.0 / (dists[off_diag] + 1e-6)).mean()
 
                     # Flatten back to [V*B, ...] for per-sample losses
-                    emb_flat = proj_emb.reshape(-1, proj_emb.shape[-1])   # [V*B, embed_dim]
-                    coords_flat = proj_coords.reshape(-1, 2)               # [V*B, 2]
+                    emb_flat = proj_emb.reshape(
+                        -1, proj_emb.shape[-1]
+                    )  # [V*B, embed_dim]
+                    coords_flat = proj_coords.reshape(-1, 2)  # [V*B, 2]
 
                     # Neighborhood + spread losses
                     neigh_loss = neighborhood_loss(proj_emb, proj_coords)
-                    rank_loss = rank_uniform_loss(anchor_coords.squeeze(0), grid_size=GRID_SIZE)
+                    rank_loss = rank_uniform_loss(
+                        anchor_coords.squeeze(0), grid_size=GRID_SIZE
+                    )
                     repul_loss = repulsion_loss(coords_flat, margin=REPULSION_MARGIN)
 
                     # Semantic losses (operate on labeled samples only)
-                    sem_coord_attr, sem_coord_repel = semantic_head_loss(coords_flat, labels)
-                    sem_emb_attr, sem_emb_repel = semantic_head_loss(emb_flat, labels, margin=0.5)
+                    sem_coord_attr, sem_coord_repel = semantic_head_loss(
+                        coords_flat, labels
+                    )
+                    sem_emb_attr, sem_emb_repel = semantic_head_loss(
+                        emb_flat, labels, margin=0.5
+                    )
 
                     # Prediction losses
                     class_weights = label_tracker.get_class_weights()
                     sup_loss, sup_accuracy, sup_confusion = prediction_loss_sup(
-                        logits, labels, num_classes=n_classes, class_weights=class_weights
+                        logits,
+                        labels,
+                        num_classes=n_classes,
+                        class_weights=class_weights,
                     )
                     pseudo_loss = torch.zeros((), device=device)
                     pred_labels = high_conf = None
                     if label_tracker.num_updates > NBATCH_PSEUDO_WARMUP:
-                        pseudo_loss, pred_labels, high_conf = prediction_loss_pseudo_sce_adaptive(
-                            logits, labels, adaptive_thresh, num_classes=n_classes,
-                            pseudo_class_weights=label_tracker.get_class_weights(pseudo=True),
-                            views_per_patch=NVIEWS,
+                        pseudo_loss, pred_labels, high_conf = (
+                            prediction_loss_pseudo_sce_adaptive(
+                                logits,
+                                labels,
+                                adaptive_thresh,
+                                num_classes=n_classes,
+                                pseudo_class_weights=label_tracker.get_class_weights(
+                                    pseudo=True
+                                ),
+                                views_per_patch=NVIEWS,
+                            )
                         )
 
                     # Update the label tracker with the current batch's predictions and compute the labeled rate and number of pseudo-labeled samples.
                     # high_conf/pred_labels are laid out as V identical copies of the same
                     # per-patch values (block-repeated, not interleaved) — take the first block.
+                    pseudo_labels = None
+                    if (
+                        pred_labels is not None
+                        and high_conf is not None
+                        and high_conf.any()
+                    ):
+                        pseudo_labels = pred_labels[high_conf].view(NVIEWS, -1)[0]
                     labeled_rate, _, num_pseudo = label_tracker.update(
-                        raw_labels[:nbase_ids].to(device),
-                        pred_labels[high_conf].view(NVIEWS, -1)[0] if high_conf is not None and high_conf.any() else None,  # pyrefly: ignore
+                        raw_labels[:nbase_ids].to(device), pseudo_labels
                     )
 
                     # Compute the total loss as a weighted sum of all individual losses.
                     total_loss = (
-                        COORD_CONSITENCY_LOSS  * coord_consistency
+                        COORD_CONSITENCY_LOSS * coord_consistency
                         + COORD_CONTRASTIVE_LOSS * coord_contrastive
-                        + SWAV_EMB_LOSS         * swav_emb_loss
-                        + RANK_UNIFORM_LOSS     * rank_loss
-                        + NEIGHBOR_LAMBDA       * neigh_loss
-                        + REPULSION_LAMBDA      * repul_loss
+                        + SWAV_EMB_LOSS * swav_emb_loss
+                        + RANK_UNIFORM_LOSS * rank_loss
+                        + NEIGHBOR_LAMBDA * neigh_loss
+                        + REPULSION_LAMBDA * repul_loss
                         + SEMANTIC_COORD_LAMBDA * (sem_coord_attr + sem_coord_repel)
-                        + SEMANTIC_EMB_LAMBDA   * (sem_emb_attr   + sem_emb_repel)
-                        + PRED_SUP_LAMBDA       * sup_loss
-                        + PRED_PSEUDO_LAMBDA    * pseudo_loss
+                        + SEMANTIC_EMB_LAMBDA * (sem_emb_attr + sem_emb_repel)
+                        + PRED_SUP_LAMBDA * sup_loss
+                        + PRED_PSEUDO_LAMBDA * pseudo_loss
                     )
 
                 scaler.scale(total_loss).backward()
@@ -491,28 +591,36 @@ def train_worker(config: dict[str, Any]) -> None:
                 scaler.update()
 
                 with torch.no_grad():
-                    getattr(joint_head, "module", joint_head).prototypes.data.copy_(  # pyrefly: ignore
-                        torch.nn.functional.normalize(getattr(joint_head, "module", joint_head).prototypes.data, dim=1)  # pyrefly: ignore
+                    head: Any = getattr(joint_head, "module", joint_head)
+                    head.prototypes.data.copy_(
+                        torch.nn.functional.normalize(head.prototypes.data, dim=1)
                     )
 
                 # Update train_priority for the sequential part only.
                 if shard_id is not None:
-                    patch_ids_t = torch.tensor(finite_batch.patch_ids, dtype=torch.long, device=device)
-                    labeled_ids, combined_rarity = compute_weighting_scores(
-                        patch_ids_t, labels, emb_flat.detach(), class_weights=label_tracker.get_class_weights(),
-                        nbase_ids=nbase_ids, k_neighbors=K_NEIGHBORS,
-                        spatial_alpha=GT_SPATIAL_RARITY_ALPHA, class_alpha=GT_CLASS_RARITY_ALPHA,
+                    patch_ids_t = torch.tensor(
+                        finite_batch.patch_ids, dtype=torch.long, device=device
                     )
-                    if labeled_ids is not None:
-                        score_writer.enqueue(labeled_ids, niter_total + (combined_rarity if combined_rarity is not None else 0))  # pyrefly: ignore
+                    labeled_ids, combined_rarity = compute_weighting_scores(
+                        patch_ids_t,
+                        labels,
+                        emb_flat.detach(),
+                        class_weights=label_tracker.get_class_weights(),
+                        nbase_ids=nbase_ids,
+                        k_neighbors=K_NEIGHBORS,
+                        spatial_alpha=GT_SPATIAL_RARITY_ALPHA,
+                        class_alpha=GT_CLASS_RARITY_ALPHA,
+                    )
+                    if labeled_ids is not None and combined_rarity is not None:
+                        score_writer.enqueue(labeled_ids, niter_total + combined_rarity)
 
                 # Save predictions for the sequential patches only, using first view's
                 # coords/logits (indices 0..nbase_ids-1 in the V*B stacked layout).
                 if shard_id is not None:
                     with torch.no_grad():
-                        first_coords = coords[:nbase_ids].float()        # [nbase_ids, 2]
-                        first_logits = logits[:nbase_ids].float()        # [nbase_ids, C]
-                        pred_classes = first_logits.argmax(dim=-1)       # [nbase_ids]
+                        first_coords = coords[:nbase_ids].float()  # [nbase_ids, 2]
+                        first_logits = logits[:nbase_ids].float()  # [nbase_ids, C]
+                        pred_classes = first_logits.argmax(dim=-1)  # [nbase_ids]
 
                     now = datetime.datetime.now(tz=datetime.UTC)
                     records: list[tuple] = []
@@ -521,26 +629,38 @@ def train_worker(config: dict[str, Any]) -> None:
                         embed_y = float(first_coords[j, 1].item()) * GRID_SIZE_SCALE
                         # A point exactly on the world edge would land in cell
                         # world_size, which no tile/CM read range covers.
-                        grid_cell_i = min(max(int(embed_x), 0), projection_space_size - 1)
-                        grid_cell_j = min(max(int(embed_y), 0), projection_space_size - 1)
-                        records.append((
-                            patch_id,
-                            embed_x,
-                            embed_y,
-                            grid_cell_i,
-                            grid_cell_j,
-                            now,
-                            label_map.from_model_index(int(pred_classes[j].item())),
-                        ))
-
-                    pred_shard_id = local_worker_shard_map.get_b_shard_for_a_shard(shard_id)
-                    with worker_sm.get_session() as session:
-                        WorkerPatchStore(project_id, session).insert_predictions_to_shard(
-                            pred_shard_id, records
+                        grid_cell_i = min(
+                            max(int(embed_x), 0), projection_space_size - 1
                         )
+                        grid_cell_j = min(
+                            max(int(embed_y), 0), projection_space_size - 1
+                        )
+                        records.append(
+                            (
+                                patch_id,
+                                embed_x,
+                                embed_y,
+                                grid_cell_i,
+                                grid_cell_j,
+                                now,
+                                label_map.from_model_index(int(pred_classes[j].item())),
+                            )
+                        )
+
+                    pred_shard_id = local_worker_shard_map.get_b_shard_for_a_shard(
+                        shard_id
+                    )
+                    with worker_sm.get_session() as session:
+                        WorkerPatchStore(
+                            project_id, session
+                        ).insert_predictions_to_shard(pred_shard_id, records)
                     logger.debug(
                         "[Worker %d (local %d)] Cycle %d — shard %d, wrote %d predictions.",
-                        world_rank, local_rank, cycle, shard_id, len(records),
+                        world_rank,
+                        local_rank,
+                        cycle,
+                        shard_id,
+                        len(records),
                     )
 
                 if niter_total % LOG_EVERY == 0:
@@ -572,7 +692,12 @@ def train_worker(config: dict[str, Any]) -> None:
 
                 niter_total += 1
 
-            logger.info("[Worker %d (local %d)] Cycle %d done. Waiting at barrier.", world_rank, local_rank, cycle)
+            logger.info(
+                "[Worker %d (local %d)] Cycle %d done. Waiting at barrier.",
+                world_rank,
+                local_rank,
+                cycle,
+            )
 
             # Barrier 1: all workers finished inserting for this cycle
             barrier()
@@ -583,7 +708,12 @@ def train_worker(config: dict[str, Any]) -> None:
 
             # Barrier 2: rotation complete, all workers may proceed
             barrier()
-            logger.info("[Worker %d (local %d)] Cycle %d complete. Starting next cycle.", world_rank, local_rank, cycle)
+            logger.info(
+                "[Worker %d (local %d)] Cycle %d complete. Starting next cycle.",
+                world_rank,
+                local_rank,
+                cycle,
+            )
     finally:
         score_writer.close()
 
@@ -591,6 +721,7 @@ def train_worker(config: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 # DLActor — named Ray actor holding training state
 # ---------------------------------------------------------------------------
+
 
 @ray.remote(max_concurrency=3)  # pyrefly: ignore
 class DLActor:
@@ -600,9 +731,16 @@ class DLActor:
     :func:`dl_actor_name`.
     """
 
-    def __init__(self, project_id: int, app_config: dict[str, Any], label_classes: list[LabelClassResponse]) -> None:
+    def __init__(
+        self,
+        project_id: int,
+        app_config: dict[str, Any],
+        label_classes: list[LabelClassResponse],
+    ) -> None:
         self._project_id = project_id
-        self._training_enabled: bool = False  # frozen by default until explicitly unfrozen
+        self._training_enabled: bool = (
+            False  # frozen by default until explicitly unfrozen
+        )
         self._termination_signal: bool = False
         self._app_config = app_config or {}
         self._label_classes = label_classes
@@ -643,11 +781,10 @@ class DLActor:
         )
 
 
-
-
 # ---------------------------------------------------------------------------
 # Internal helper — launched as a detached Ray task
 # ---------------------------------------------------------------------------
+
 
 def _launch_training(
     project_id: int,
@@ -710,10 +847,7 @@ def startup_dl_actor(project_id: int) -> DLActor:
         settings_store = SettingsStore(session)
         # TODO: This is unnecessary
         raw = settings_store.get_all_raw(project_id, scope=SettingScope.PROJECT)
-        app_config = {
-            k: _parse_setting_value(v.value, v.type)
-            for k, v in raw.items()
-        }
+        app_config = {k: _parse_setting_value(v.value, v.type) for k, v in raw.items()}
 
         # Fetch label classes for the worker to build the LabelMap
         label_class_store = LabelClassStore(session)

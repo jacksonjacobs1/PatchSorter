@@ -1,9 +1,8 @@
-# pyrefly: ignore-file
 """Unit tests for PatchStore._paginated_pred_join and .get_patches_within_grid_bbox."""
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any, ClassVar, TypedDict
 
 import pytest
 from sqlalchemy import text
@@ -14,6 +13,7 @@ from patchsorter.db.head_client import PatchStore
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_patch_ids(session: Session, project_id: int) -> list[int]:
     """Return patch_ids for project{N}_patch ordered by patch_id."""
@@ -80,8 +80,11 @@ def _insert_last(session: Session, project_id: int, records: list[tuple]) -> Non
 # Expected in-bbox patch indices: 0, 1, 3, 4  →  4 rows
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
-def seeded_preds(example_project: dict[str, Any], db_session: Session) -> dict[str, Any]:
+def seeded_preds(
+    example_project: dict[str, Any], db_session: Session
+) -> dict[str, Any]:
     """Seed pred_patch_latest and pred_patch_last on top of example_project."""
     project_id: int = example_project["project"]["project_id"]
     lc_id: int = example_project["label_classes"][0]["label_class_id"]
@@ -101,11 +104,11 @@ def seeded_preds(example_project: dict[str, Any], db_session: Session) -> dict[s
         db_session,
         project_id,
         [
-            (p0, 0.10, 0.20, 2, 3, lc_id),   # in bbox
-            (p1, 0.11, 0.21, 2, 4, lc_id),   # in bbox
-            (p2, 0.12, 0.22, 5, 5, lc_id),   # outside bbox
+            (p0, 0.10, 0.20, 2, 3, lc_id),  # in bbox
+            (p1, 0.11, 0.21, 2, 4, lc_id),  # in bbox
+            (p2, 0.12, 0.22, 5, 5, lc_id),  # outside bbox
             # p3 intentionally omitted from latest
-            (p4, 0.14, 0.24, 2, 3, lc_id),   # in bbox; also in last (different coords)
+            (p4, 0.14, 0.24, 2, 3, lc_id),  # in bbox; also in last (different coords)
         ],
     )
 
@@ -114,8 +117,8 @@ def seeded_preds(example_project: dict[str, Any], db_session: Session) -> dict[s
         db_session,
         project_id,
         [
-            (p3, 0.30, 0.31, 2, 3, lc_id),         # in bbox, no latest row
-            (p4, 99.9, 99.9, 9, 9, lc_id),          # outside bbox if taken alone; latest wins
+            (p3, 0.30, 0.31, 2, 3, lc_id),  # in bbox, no latest row
+            (p4, 99.9, 99.9, 9, 9, lc_id),  # outside bbox if taken alone; latest wins
         ],
     )
 
@@ -132,6 +135,14 @@ def seeded_preds(example_project: dict[str, Any], db_session: Session) -> dict[s
 # ---------------------------------------------------------------------------
 # _paginated_pred_join — direct tests
 # ---------------------------------------------------------------------------
+
+
+class _BBox(TypedDict):
+    i_min: int
+    i_max: int
+    j_min: int
+    j_max: int
+
 
 class TestPaginatedPredJoin:
     def test_returns_list_of_dicts(self, seeded_preds, db_session):
@@ -167,7 +178,9 @@ class TestPaginatedPredJoin:
             {"i": 2, "j": 3},
         )
         p4_rows = [r for r in rows if r["patch_id"] == p4]
-        assert len(p4_rows) == 1, "patch4 should appear exactly once (deduped by DISTINCT ON)"
+        assert len(p4_rows) == 1, (
+            "patch4 should appear exactly once (deduped by DISTINCT ON)"
+        )
         # Latest row has embed_x=0.14, last row has embed_x=99.9
         assert abs(p4_rows[0]["embed_x"] - 0.14) < 1e-6, "latest embed_x expected"
         assert p4_rows[0]["priority"] == 1
@@ -291,11 +304,26 @@ class TestPaginatedPredJoin:
         assert len(rows) == 1
         row = rows[0]
         # patch columns
-        for key in ("patch_id", "patch_uid", "label_class_id", "image_id", "downsample_factor", "centroid_x", "centroid_y"):
+        for key in (
+            "patch_id",
+            "patch_uid",
+            "label_class_id",
+            "image_id",
+            "downsample_factor",
+            "centroid_x",
+            "centroid_y",
+        ):
             assert key in row, f"Expected patch column '{key}' in result"
         # pred columns
-        for key in ("embed_x", "embed_y", "grid_cell_i", "grid_cell_j",
-                    "pred_label_class_id", "event_ts", "priority"):
+        for key in (
+            "embed_x",
+            "embed_y",
+            "grid_cell_i",
+            "grid_cell_j",
+            "pred_label_class_id",
+            "event_ts",
+            "priority",
+        ):
             assert key in row, f"Expected pred column '{key}' in result"
 
 
@@ -303,8 +331,9 @@ class TestPaginatedPredJoin:
 # get_patches_within_grid_bbox
 # ---------------------------------------------------------------------------
 
+
 class TestGetPatchesWithinGridBbox:
-    BBOX: ClassVar[dict[str, int]] = {"i_min": 2, "i_max": 3, "j_min": 3, "j_max": 4}
+    BBOX: ClassVar[_BBox] = {"i_min": 2, "i_max": 3, "j_min": 3, "j_max": 4}
 
     def test_returns_in_bbox_patches(self, seeded_preds, db_session):
         """All four in-bbox patches are returned."""
@@ -421,8 +450,11 @@ class TestGetPatchesWithinGridBbox:
 # Test bbox: i in [2,3], j in [3,4] → in-bbox patches: p0, p1, p3, p4
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
-def seeded_preds_lp(example_project: dict[str, Any], db_session: Session) -> dict[str, Any]:
+def seeded_preds_lp(
+    example_project: dict[str, Any], db_session: Session
+) -> dict[str, Any]:
     """Seed predictions with mixed (gt, pred) label-class combinations."""
     project_id: int = example_project["project"]["project_id"]
     tumor_id: int = example_project["label_classes"][0]["label_class_id"]
@@ -445,20 +477,29 @@ def seeded_preds_lp(example_project: dict[str, Any], db_session: Session) -> dic
 
     # pred_patch_latest
     _insert_latest(
-        db_session, project_id,
+        db_session,
+        project_id,
         [
-            (p0, 0.10, 0.20, 2, 3, tumor_id),   # GT=tumor, pred=tumor, in bbox
+            (p0, 0.10, 0.20, 2, 3, tumor_id),  # GT=tumor, pred=tumor, in bbox
             (p1, 0.11, 0.21, 2, 4, normal_id),  # GT=tumor, pred=normal, in bbox
-            (p2, 0.12, 0.22, 5, 5, tumor_id),   # GT=normal, pred=tumor, outside bbox
-            (p4, 0.14, 0.24, 2, 3, tumor_id),   # GT=tumor, pred=tumor, in bbox
+            (p2, 0.12, 0.22, 5, 5, tumor_id),  # GT=normal, pred=tumor, outside bbox
+            (p4, 0.14, 0.24, 2, 3, tumor_id),  # GT=tumor, pred=tumor, in bbox
         ],
     )
 
     # pred_patch_last
     _insert_last(
-        db_session, project_id,
+        db_session,
+        project_id,
         [
-            (p3, 0.30, 0.31, 2, 3, normal_id),  # GT=normal, pred=normal, in bbox (last only)
+            (
+                p3,
+                0.30,
+                0.31,
+                2,
+                3,
+                normal_id,
+            ),  # GT=normal, pred=normal, in bbox (last only)
             (p4, 99.9, 99.9, 9, 9, normal_id),  # stale; latest wins for p4
         ],
     )
@@ -482,7 +523,7 @@ class TestLabelPairsFilter:
     """Tests for label_pairs filtering in _paginated_pred_join, fetch_predicted,
     and get_patches_within_grid_bbox."""
 
-    BBOX: ClassVar[dict[str, int]] = {"i_min": 2, "i_max": 3, "j_min": 3, "j_max": 4}
+    BBOX: ClassVar[_BBox] = {"i_min": 2, "i_max": 3, "j_min": 3, "j_max": 4}
 
     def test_single_concordant_pair(self, seeded_preds_lp, db_session):
         """label_pairs=[(tumor, tumor)] returns only concordant tumor patches."""
@@ -594,7 +635,7 @@ class TestLabelPairsFilter:
         rows = store.fetch_predicted(label_pairs=[(tid, nid)], include_image=False)
         assert len(rows) == 1
         row = rows[0]
-        assert row["label_class_id"] == tid,      "GT label should be tumor"
+        assert row["label_class_id"] == tid, "GT label should be tumor"
         assert row["pred_label_class_id"] == nid, "Pred label should be normal"
 
     def test_last_only_patch_included_in_pair_filter(self, seeded_preds_lp, db_session):
@@ -607,4 +648,6 @@ class TestLabelPairsFilter:
         rows = store.fetch_predicted(label_pairs=[(nid, nid)], include_image=False)
         returned_ids = {r["patch_id"] for r in rows}
 
-        assert p3 in returned_ids, "last-only patch p3 should be in (normal, normal) results"
+        assert p3 in returned_ids, (
+            "last-only patch p3 should be in (normal, normal) results"
+        )

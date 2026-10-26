@@ -19,9 +19,20 @@ router = APIRouter()
 
 def _extract_ray_cause_message(exc: Exception) -> str:
     """Unwrap Ray exceptions to get the root cause message."""
-    if exc.__class__.__name__ == "RayTaskError" and hasattr(exc, "cause") and exc.cause is not None:
+    if (
+        exc.__class__.__name__ == "RayTaskError"
+        and hasattr(exc, "cause")
+        and exc.cause is not None
+    ):
         return str(exc.cause)
     return str(exc)
+
+
+def _get_image_name(image_store: ImageStore, image_id: int, project_id: int) -> str:
+    image = image_store.get(image_id, project_id)
+    if image is None:
+        raise HTTPException(status_code=404, detail=f"Image {image_id} not found")
+    return str(image.name)
 
 
 def _get_actor(session_id: str) -> ray.actor.ActorHandle:
@@ -62,13 +73,16 @@ def export_patch_csv(
     with get_client().get_session() as session:
         image_store = ImageStore(session)
         images = [
-            ExportImage(image_id=img_id, image_name=image_store.get(img_id, project_id).name)
+            ExportImage(
+                image_id=img_id,
+                image_name=_get_image_name(image_store, img_id, project_id),
+            )
             for img_id in request.image_ids
         ]
         label_class_ids = request.label_class_ids
 
     # Create the Ray actor (detached, lives beyond this request)
-    ExportSessionActor.options(
+    ExportSessionActor.options(  # pyrefly: ignore[missing-attribute]
         name=f"export_session_{session_id}",
         lifetime="detached",
         get_if_exists=False,
@@ -81,12 +95,14 @@ def export_patch_csv(
 
     # Build populated manifest_urls using url_path_for (no hardcoding)
     manifest_urls = [
-        str(http_request.url_for(
-            "download_patch_csv",
-            project_id=project_id,
-            session_id=session_id,
-            image_id=img.image_id,
-        ))
+        str(
+            http_request.url_for(
+                "download_patch_csv",
+                project_id=project_id,
+                session_id=session_id,
+                image_id=img.image_id,
+            )
+        )
         for img in images
     ]
 
@@ -114,10 +130,12 @@ async def download_patch_csv(
     actor = _get_actor(session_id)
     with get_client().get_session() as session:
         image_store = ImageStore(session)
-        image_name = image_store.get(image_id, project_id).name
-    csv_path: Path = Path(ray.get(actor.get_csv_path.remote(image_id, image_name)))
+        image_name = _get_image_name(image_store, image_id, project_id)
+    csv_path = Path(str(ray.get(actor.get_csv_path.remote(image_id, image_name))))
 
     if not os.path.exists(csv_path):
-        raise HTTPException(status_code=404, detail=f"CSV file not found for image_id={image_id}")
+        raise HTTPException(
+            status_code=404, detail=f"CSV file not found for image_id={image_id}"
+        )
 
     return FileResponse(csv_path, media_type="text/csv", filename=csv_path.name)

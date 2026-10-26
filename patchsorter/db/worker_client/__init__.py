@@ -1,4 +1,5 @@
 """Worker client helpers (thin wrappers returning SessionManager for worker nodes)."""
+
 import os
 
 from patchsorter.db.utils import SessionManager

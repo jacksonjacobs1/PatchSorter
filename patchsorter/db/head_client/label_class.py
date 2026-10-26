@@ -23,7 +23,7 @@ class ColorPalette:
     """Yield unused colors from the configured palette for a given project."""
 
     def __init__(self, project_id: int) -> None:
-        self._color_list = ANNOTATION_CLASS_COLOR_PALETTES['default']
+        self._color_list = ANNOTATION_CLASS_COLOR_PALETTES["default"]
         self._project_id = project_id
 
     def get_unused_color(self, existing: list[LabelClassResponse]) -> str:
@@ -67,16 +67,20 @@ class LabelClassStore:
         Returns:
             A dict with all columns of the newly created label-class row.
         """
-        row = self._session.execute(
-            text(
-                """
+        row = (
+            self._session.execute(
+                text(
+                    """
                 INSERT INTO label_class (project_id, name, color_code)
                 VALUES (:project_id, :name, :color_code)
                 RETURNING *
                 """
-            ),
-            {"project_id": project_id, "name": name, "color_code": color_code},
-        ).mappings().one()
+                ),
+                {"project_id": project_id, "name": name, "color_code": color_code},
+            )
+            .mappings()
+            .one()
+        )
         return dict(row)
 
     def update(
@@ -127,7 +131,9 @@ class LabelClassStore:
         Returns:
             A list of LabelClassResponse Pydantic models.
         """
-        project_filter = or_(LabelClass.project_id == project_id, LabelClass.project_id.is_(None))
+        project_filter = or_(
+            LabelClass.project_id == project_id, LabelClass.project_id.is_(None)
+        )
 
         rows = (
             self._session.query(LabelClass)
@@ -181,7 +187,10 @@ class LabelClassStore:
         )
 
         # Steps 2 & 3: reset prediction labels.
-        for tbl in (build_pred_table_name(n, PredPatchSuffix.LATEST), build_pred_table_name(n, PredPatchSuffix.LAST)):
+        for tbl in (
+            build_pred_table_name(n, PredPatchSuffix.LATEST),
+            build_pred_table_name(n, PredPatchSuffix.LAST),
+        ):
             self._session.execute(
                 text(
                     f"UPDATE {tbl} SET label_class_id = {UNASSIGNED_CLASS_ID} WHERE label_class_id = :lcid"

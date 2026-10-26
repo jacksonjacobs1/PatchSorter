@@ -2,6 +2,7 @@
 
 Import :class:`~patchsorter.db.head_client.patch.PatchStore` instead.
 """
+
 from __future__ import annotations
 
 import warnings

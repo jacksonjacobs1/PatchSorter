@@ -69,10 +69,23 @@ def get_client(is_local: bool = True) -> SessionManager:
     global _head_client
     if _head_client is None:
         _head_client = SessionManager(
-            host=os.environ.get("CITUS_LOCAL_HOST" if is_local else "CITUS_HEAD_HOST", "localhost"),
-            port=int(os.environ.get("CITUS_LOCAL_PORT" if is_local else "CITUS_HEAD_PORT", "5439")),
-            dbname=os.environ.get("CITUS_LOCAL_DB" if is_local else "CITUS_HEAD_DB", "postgres"),
-            user=os.environ.get("CITUS_LOCAL_USER" if is_local else "CITUS_HEAD_USER", "postgres"),
-            password=os.environ.get("CITUS_LOCAL_PASSWORD" if is_local else "CITUS_HEAD_PASSWORD", "password"),
+            host=os.environ.get(
+                "CITUS_LOCAL_HOST" if is_local else "CITUS_HEAD_HOST", "localhost"
+            ),
+            port=int(
+                os.environ.get(
+                    "CITUS_LOCAL_PORT" if is_local else "CITUS_HEAD_PORT", "5439"
+                )
+            ),
+            dbname=os.environ.get(
+                "CITUS_LOCAL_DB" if is_local else "CITUS_HEAD_DB", "postgres"
+            ),
+            user=os.environ.get(
+                "CITUS_LOCAL_USER" if is_local else "CITUS_HEAD_USER", "postgres"
+            ),
+            password=os.environ.get(
+                "CITUS_LOCAL_PASSWORD" if is_local else "CITUS_HEAD_PASSWORD",
+                "password",
+            ),
         )
     return _head_client

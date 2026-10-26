@@ -1,4 +1,5 @@
 """TensorBoard logging helpers for the DL training loop."""
+
 from __future__ import annotations
 
 import datetime
@@ -10,10 +11,14 @@ from torch.utils.tensorboard import SummaryWriter
 def init_summary_writer(world_rank: int, log_dir: str = "runs") -> SummaryWriter:
     """Create a tensorboard writer with a timestamped, per-worker run directory."""
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    return SummaryWriter(log_dir=f"{log_dir}/worker_{world_rank}_{timestamp}", flush_secs=10)
+    return SummaryWriter(
+        log_dir=f"{log_dir}/worker_{world_rank}_{timestamp}", flush_secs=10
+    )
 
 
-def _add_scalar(writer: SummaryWriter, tag: str, value: torch.Tensor | float | None, step: int) -> None:
+def _add_scalar(
+    writer: SummaryWriter, tag: str, value: torch.Tensor | float | None, step: int
+) -> None:
     if value is None:
         return
     if isinstance(value, torch.Tensor):
@@ -38,7 +43,9 @@ def log_training_scalars(
     if num_pseudo is not None and num_pseudo.any():
         total_pseudo = num_pseudo.sum().item()
         for cls_i in (num_pseudo > 0).nonzero(as_tuple=True)[0].tolist():
-            writer.add_scalar(f"train/num_pseudo/{cls_i}", num_pseudo[cls_i].item(), niter_total)
+            writer.add_scalar(
+                f"train/num_pseudo/{cls_i}", num_pseudo[cls_i].item(), niter_total
+            )
     writer.add_scalar("train/num_pseudo/total", total_pseudo, niter_total)
 
 
@@ -54,4 +61,8 @@ def log_confusion_matrix(
     num_classes = confusion.shape[0]
     for true_c in range(num_classes):
         for pred_c in range(num_classes):
-            writer.add_scalar(f"{prefix}/conf_{true_c}_{pred_c}", confusion[true_c, pred_c].item(), step)
+            writer.add_scalar(
+                f"{prefix}/conf_{true_c}_{pred_c}",
+                confusion[true_c, pred_c].item(),
+                step,
+            )

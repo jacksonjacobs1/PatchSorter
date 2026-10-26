@@ -31,15 +31,18 @@ class WorkerPatchStore:
         self.project_id = project_id
         self._session = session
         self._patch_table = build_table_name(project_id)
-        self._pred_table_latest = build_pred_table_name(project_id, PredPatchSuffix.LATEST)
+        self._pred_table_latest = build_pred_table_name(
+            project_id, PredPatchSuffix.LATEST
+        )
 
     def get_local_group_id(self) -> int:
         """Return the local group ID of the worker node."""
-        row = self._session.execute(
-            text("SELECT groupid FROM pg_dist_local_group")
-        ).mappings().one()
+        row = (
+            self._session.execute(text("SELECT groupid FROM pg_dist_local_group"))
+            .mappings()
+            .one()
+        )
         return row["groupid"]
-
 
     # ------------------------------------------------------------------ #
     # Patch reads                                                          #
@@ -90,17 +93,21 @@ class WorkerPatchStore:
             Empty list when no more rows are available.
         """
         shard_table = build_table_name(self.project_id, shard_id)
-        rows = self._session.execute(
-            text(
-                f"SELECT patch_id, patch_uid, label_class_id, image_id, "
-                f"downsample_factor, centroid_x, centroid_y, patch_image "
-                f"FROM {shard_table} "
-                f"WHERE patch_id > :after_id "
-                f"ORDER BY patch_id "
-                f"LIMIT :batch_size"
-            ),
-            {"after_id": after_id, "batch_size": batch_size},
-        ).mappings().fetchall()
+        rows = (
+            self._session.execute(
+                text(
+                    f"SELECT patch_id, patch_uid, label_class_id, image_id, "
+                    f"downsample_factor, centroid_x, centroid_y, patch_image "
+                    f"FROM {shard_table} "
+                    f"WHERE patch_id > :after_id "
+                    f"ORDER BY patch_id "
+                    f"LIMIT :batch_size"
+                ),
+                {"after_id": after_id, "batch_size": batch_size},
+            )
+            .mappings()
+            .fetchall()
+        )
         return [dict(r) for r in rows]
 
     def fetch_patches_by_shard(
@@ -127,16 +134,20 @@ class WorkerPatchStore:
         shard_table = f"{self._patch_table}_{shard_id}"
         cursor = 0
         while True:
-            rows = self._session.execute(
-                text(
-                    f"SELECT * "
-                    f"FROM {shard_table} "
-                    f"WHERE patch_id > :cursor "
-                    f"ORDER BY patch_id "
-                    f"LIMIT :batch_size"
-                ),
-                {"cursor": cursor, "batch_size": batch_size},
-            ).mappings().fetchall()
+            rows = (
+                self._session.execute(
+                    text(
+                        f"SELECT * "
+                        f"FROM {shard_table} "
+                        f"WHERE patch_id > :cursor "
+                        f"ORDER BY patch_id "
+                        f"LIMIT :batch_size"
+                    ),
+                    {"cursor": cursor, "batch_size": batch_size},
+                )
+                .mappings()
+                .fetchall()
+            )
             if not rows:
                 break
             batch = [dict(r) for r in rows]
@@ -173,7 +184,9 @@ class WorkerPatchStore:
         """
         if not records:
             return 0
-        shard_table = build_pred_table_name(self.project_id, PredPatchSuffix.LATEST, shard_id)
+        shard_table = build_pred_table_name(
+            self.project_id, PredPatchSuffix.LATEST, shard_id
+        )
         raw_conn = self._session.connection().connection
         with (
             raw_conn.cursor() as cur,
@@ -231,14 +244,23 @@ class WorkerPatchStore:
         # Column names come from the ORM model (cached, no DB round trip) so this
         # stays in sync with the schema instead of hand-duplicating column names.
         # ``polygon`` (Geometry) is excluded — not needed for training.
-        col_names = [c.name for c in patch_model(self.project_id).__table__.columns if c.name != "polygon"]
+        col_names = [
+            c.name
+            for c in patch_model(self.project_id).__table__.columns
+            if c.name != "polygon"
+        ]
 
         selects = []
         for shard_id in shard_ids:
-            shard_table = table(build_table_name(self.project_id, shard_id), *(column(name) for name in col_names))
+            shard_table = table(
+                build_table_name(self.project_id, shard_id),
+                *(column(name) for name in col_names),
+            )
             selects.append(
-                select(*shard_table.c, func.floor(shard_table.c.train_priority).label("times_seen"))
-                .where(shard_table.c.label_class_id > UNASSIGNED_CLASS_ID)
+                select(
+                    *shard_table.c,
+                    func.floor(shard_table.c.train_priority).label("times_seen"),
+                ).where(shard_table.c.label_class_id > UNASSIGNED_CLASS_ID)
             )
         combined = union_all(*selects).cte("combined")
 
@@ -250,7 +272,10 @@ class WorkerPatchStore:
         computed_score = case(
             (scored.c.train_priority.is_(None), init_score),
             else_=(scored.c.train_priority - scored.c.times_seen)
-            * func.greatest(0.0001, func.exp(-decay * (scored.c.max_times_seen - scored.c.times_seen))),
+            * func.greatest(
+                0.0001,
+                func.exp(-decay * (scored.c.max_times_seen - scored.c.times_seen)),
+            ),
         ).label("computed_sorting_score")
 
         stmt = (

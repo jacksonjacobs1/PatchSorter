@@ -6,6 +6,7 @@ has been running, and terminates actors that exceed the configured TTL.
 
 No registry or registration calls are needed — Ray already tracks all live actors.
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,7 +32,7 @@ except ImportError:
 
 def _cleanup_expired_sessions(ttl_seconds: int) -> None:
     """Shut down any live UploadSessionActors whose age exceeds *ttl_seconds*."""
-    if ray is None:
+    if ray is None or list_actors is None:
         log.warning("GC: ray not available")
         return
 
@@ -51,7 +52,7 @@ def _cleanup_expired_sessions(ttl_seconds: int) -> None:
     for actor in actors:
         name = actor.get("name", "")
         if name and name.startswith("upload_session_"):
-            session_id = name[len("upload_session_"):]
+            session_id = name[len("upload_session_") :]
             live_session_ids.add(session_id)
 
     for actor in actors:
@@ -61,9 +62,12 @@ def _cleanup_expired_sessions(ttl_seconds: int) -> None:
             continue
 
         name = actor.get("name", actor.get("actor_id", "<unknown>"))
-        log.info("GC: terminating expired session actor %s (age=%.0fs)", name, age_seconds)
+        log.info(
+            "GC: terminating expired session actor %s (age=%.0fs)", name, age_seconds
+        )
         try:
-            handle = ray.get_actor(name) if actor.get("name") else None
+            actor_name = actor.get("name")
+            handle = ray.get_actor(actor_name) if actor_name else None
         except Exception:  # noqa: BLE001
             handle = None
 
@@ -88,7 +92,7 @@ def _cleanup_abandoned_temp_dirs(live_session_ids: set[str]) -> None:
             continue
 
         # Parse session_id from "ps_upload_{session_id}_..."
-        suffix = entry.name[len(prefix):]
+        suffix = entry.name[len(prefix) :]
         session_id = suffix.split("_")[0]
         if not session_id:
             continue
@@ -98,7 +102,9 @@ def _cleanup_abandoned_temp_dirs(live_session_ids: set[str]) -> None:
 
         try:
             shutil.rmtree(entry)
-            log.info("GC: removed abandoned temp dir %s (session=%s)", entry, session_id)
+            log.info(
+                "GC: removed abandoned temp dir %s (session=%s)", entry, session_id
+            )
         except Exception as exc:  # noqa: BLE001
             log.debug("GC: failed to remove temp dir %s: %s", entry, exc)
 

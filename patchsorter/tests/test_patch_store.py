@@ -1,4 +1,3 @@
-# pyrefly: ignore-file
 """Unit tests for PatchStore — requires the ``example_project`` fixture."""
 
 import uuid

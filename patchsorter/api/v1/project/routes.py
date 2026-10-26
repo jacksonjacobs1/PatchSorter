@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import case, func, select, text
 
@@ -34,7 +33,9 @@ def get_project(project_id: int) -> ProjectResponse:
         try:
             row = store.get(project_id)
         except RuntimeError:
-            raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Project {project_id} not found"
+            )
     return ProjectResponse(**row)
 
 
@@ -46,7 +47,9 @@ def get_project_stats(project_id: int) -> ProjectStatsResponse:
         try:
             project_row = store.get(project_id)
         except RuntimeError:
-            raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Project {project_id} not found"
+            )
 
         # num_images
         num_images = session.execute(
@@ -84,14 +87,13 @@ def get_project_stats(project_id: int) -> ProjectStatsResponse:
         ).scalar()
 
     return ProjectStatsResponse(
-        num_images=num_images,
+        num_images=int(num_images or 0),
         patch_size=patch_size,
-        num_label_classes=num_label_classes,
+        num_label_classes=int(num_label_classes or 0),
         total_objects=total_row,
         labeled_count=labeled_row,
         creation_date=project_row.get("creation_ts"),
-        modification_date=mod_row if mod_row else None
-
+        modification_date=mod_row if mod_row else None,
     )
 
 
@@ -106,7 +108,9 @@ def update_project(
         try:
             row = store.update(project_id, name=body.name, description=body.description)
         except RuntimeError:
-            raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Project {project_id} not found"
+            )
     return ProjectResponse(**row)
 
 
@@ -119,7 +123,7 @@ def create_project(body: CreateProjectRequest) -> ProjectResponse:
 
     # Some CITUS operations cannot occur in a transaction.
     db_mgr = DatabaseManager(client)
-    db_mgr.setup_project(row.get("project_id"))
+    db_mgr.setup_project(int(row["project_id"]))
     return ProjectResponse(**row)
 
 
@@ -131,6 +135,8 @@ def delete_project(project_id: int):
         try:
             store.get(project_id)
         except RuntimeError:
-            raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Project {project_id} not found"
+            )
     db_mgr = DatabaseManager(client)
     db_mgr.delete_project(project_id)

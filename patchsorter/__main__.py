@@ -21,6 +21,7 @@ def run_ui():
     result = subprocess.run(["npm", "run", "dev"], check=False, cwd=client_dir)
     sys.exit(result.returncode)
 
+
 def autobuild_docs():
     basedir = Path(__file__).parent.parent
     result = subprocess.run(

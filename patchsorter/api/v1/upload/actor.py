@@ -63,7 +63,9 @@ def _check_image_duplicate(project_id: int, image_name: str) -> str | None:
     return f"Image '{image_name}' already exists in project" if existing else None
 
 
-def _save_files(tmpdir: str | Path, subdir: str, filenames: list[str], contents: list[bytes]) -> str:
+def _save_files(
+    tmpdir: str | Path, subdir: str, filenames: list[str], contents: list[bytes]
+) -> str:
     """Save files to *subdir* inside *tmpdir*. Returns a count message."""
     dest = Path(tmpdir) / subdir
     dest.mkdir(parents=True, exist_ok=True)
@@ -100,7 +102,12 @@ def _validate_mixed(
     sources = [
         ("image", fsman.upload.get_images_dir(session_id), image_folder, IMAGE_EXTS),
         ("mask", fsman.upload.get_masks_dir(session_id), mask_folder, MASK_EXTS),
-        ("patch CSV", fsman.upload.get_patch_csvs_dir(session_id), patch_csv_folder, PATCH_CSV_EXTS),
+        (
+            "patch CSV",
+            fsman.upload.get_patch_csvs_dir(session_id),
+            patch_csv_folder,
+            PATCH_CSV_EXTS,
+        ),
     ]
 
     results: dict[str, dict[str, Path]] = {}
@@ -118,19 +125,26 @@ def _validate_mixed(
             server_files = scan_folder(folder_fullpath, exts)
 
             if not server_files:
-                raise Exception(f"No valid {label} files found in {label} folder: {server_folder}")  # noqa: TRY002
+                raise RuntimeError(
+                    f"No valid {label} files found in {label} folder: {server_folder}"
+                )
 
             merged.update(server_files)
 
         results[label] = merged
 
     images, masks, csvs = results["image"], results["mask"], results["patch CSV"]
-            
+
     if not images:
         return {
             "paths": [
-                {"image": None, "mask": None, "csv": None, "status": "error",
-                     "error": "No images found in session temp dir or image_folder"},
+                {
+                    "image": None,
+                    "mask": None,
+                    "csv": None,
+                    "status": "error",
+                    "error": "No images found in session temp dir or image_folder",
+                },
             ],
             "errors": 1,
         }
@@ -142,19 +156,29 @@ def _validate_mixed(
         img_path = images[stem]
         stem = img_path.stem
         img_rel = _make_relative(img_path, fsman, upload_base, session_id)
-        mask_rel = _make_relative(masks[stem], fsman, upload_base, session_id) if stem in masks else None
-        csv_rel = _make_relative(csvs[stem], fsman, upload_base, session_id) if stem in csvs else None
+        mask_rel = (
+            _make_relative(masks[stem], fsman, upload_base, session_id)
+            if stem in masks
+            else None
+        )
+        csv_rel = (
+            _make_relative(csvs[stem], fsman, upload_base, session_id)
+            if stem in csvs
+            else None
+        )
 
         duplicate_error = _check_image_duplicate(project_id, img_path.name)
         if duplicate_error:
-            rows.append({
-                "image": img_rel,
-                "mask": mask_rel,
-                "csv": csv_rel,
-                "status": "error",
-                "error": duplicate_error,
-                "base_mag": None,
-            })
+            rows.append(
+                {
+                    "image": img_rel,
+                    "mask": mask_rel,
+                    "csv": csv_rel,
+                    "status": "error",
+                    "error": duplicate_error,
+                    "base_mag": None,
+                }
+            )
             continue
 
         try:
@@ -164,19 +188,25 @@ def _validate_mixed(
             base_mag = None
 
         has_data = bool(mask_rel or csv_rel)
-        rows.append({
-            "image": img_rel,
-            "mask": mask_rel,
-            "csv": csv_rel,
-            "status": "ok" if has_data else "error",
-            "error": None if has_data else f"No mask or patch CSV found for {img_path.name}",
-            "base_mag": base_mag,
-        })
+        rows.append(
+            {
+                "image": img_rel,
+                "mask": mask_rel,
+                "csv": csv_rel,
+                "status": "ok" if has_data else "error",
+                "error": None
+                if has_data
+                else f"No mask or patch CSV found for {img_path.name}",
+                "base_mag": base_mag,
+            }
+        )
 
     return {"paths": rows, "errors": sum(1 for r in rows if r["status"] == "error")}
 
 
-def _make_relative(path: Path, fsman: FileStoreManager, upload_base: Path, session_id: str) -> str:
+def _make_relative(
+    path: Path, fsman: FileStoreManager, upload_base: Path, session_id: str
+) -> str:
     """Return a relative path string, prefixed with *session_id* if the file lives in the upload store."""
     try:
         path.relative_to(upload_base)
@@ -185,7 +215,9 @@ def _make_relative(path: Path, fsman: FileStoreManager, upload_base: Path, sessi
         return fsman.nas_read.global_to_relative(path)
 
 
-def _validate_image_csv(csv_content: bytes, session_id: str = "", project_id: int = 0) -> dict:
+def _validate_image_csv(
+    csv_content: bytes, session_id: str = "", project_id: int = 0
+) -> dict:
     """Parse an image manifest CSV and validate that each path exists on the server."""
     text = csv_content.decode("utf-8-sig")  # handle BOM
     reader = csv.DictReader(io.StringIO(text))
@@ -212,7 +244,9 @@ def _validate_image_csv(csv_content: bytes, session_id: str = "", project_id: in
                 else:
                     try:
                         ts = large_image.open(str(img_full))
-                        base_mag = ts.getMetadata().get(LargeImageMetadataKeys.BASE_MAGNIFICATION)
+                        base_mag = ts.getMetadata().get(
+                            LargeImageMetadataKeys.BASE_MAGNIFICATION
+                        )
                     except Exception:  # noqa: BLE001
                         base_mag = None
 
@@ -220,7 +254,9 @@ def _validate_image_csv(csv_content: bytes, session_id: str = "", project_id: in
         if mask and not mask_full.exists():  # pyrefly: ignore
             errors.append(f"Mask not found: {mask}")
 
-        patch_csv_full = fsman.nas_read.relative_to_global(patch_csv) if patch_csv else None
+        patch_csv_full = (
+            fsman.nas_read.relative_to_global(patch_csv) if patch_csv else None
+        )
         if patch_csv and not patch_csv_full.exists():  # pyrefly: ignore
             errors.append(f"Patch CSV not found: {patch_csv}")
 
@@ -282,8 +318,16 @@ def process_row(
     assert process_row_arg.image is not None
     image_path = _resolve_path(fsman, process_row_arg.image, session_id)
     image_filename = image_path.name
-    mask_path = _resolve_path(fsman, process_row_arg.mask, session_id) if process_row_arg.mask else None
-    csv_path = _resolve_path(fsman, process_row_arg.csv, session_id) if process_row_arg.csv else None
+    mask_path = (
+        _resolve_path(fsman, process_row_arg.mask, session_id)
+        if process_row_arg.mask
+        else None
+    )
+    csv_path = (
+        _resolve_path(fsman, process_row_arg.csv, session_id)
+        if process_row_arg.csv
+        else None
+    )
 
     # Open image tile source
     ts = large_image.open(str(image_path))
@@ -310,17 +354,25 @@ def process_row(
 
     # Load settings (passed from UploadSessionActor — no extra DB round-trip needed)
     patch_size: int = int(settings.get("patch_size", 64))
-    patch_extraction_method: str = settings.get("patch_extraction_method", PatchExtractionMethod.USE_ESTIMATED_OBJECT_SIZE)
+    patch_extraction_method: str = settings.get(
+        "patch_extraction_method", PatchExtractionMethod.USE_ESTIMATED_OBJECT_SIZE
+    )
     object_radius_str: str | None = settings.get("object_radius")
-    object_radius: float | None = float(object_radius_str) if object_radius_str else None
+    object_radius: float | None = (
+        float(object_radius_str) if object_radius_str else None
+    )
 
     # Determine downsample strategy
     mm_per_pixel = mm_per_pixel_at_base(base_mag)
 
     if patch_extraction_method == PatchExtractionMethod.USE_MANUAL_OBJECT_RADIUS:
         if object_radius is None:
-            raise ValueError("object_radius setting is required when patch_extraction_method is 'use manual object radius'")
-        downsample = compute_downsample_factor(object_radius, base_mag, patch_size, mm_per_pixel)
+            raise ValueError(
+                "object_radius setting is required when patch_extraction_method is 'use manual object radius'"
+            )
+        downsample = compute_downsample_factor(
+            object_radius, base_mag, patch_size, mm_per_pixel
+        )
         per_patch_downsample = False
 
     elif patch_extraction_method == PatchExtractionMethod.FIT_ALL_OBJECTS:
@@ -350,11 +402,15 @@ def process_row(
             if per_patch_downsample:
                 radius_pixels = get_polygon_radius_in_pixels(geometry)
                 radius_microns = radius_pixels * mm_per_pixel * 1000
-                computed_downsample = compute_downsample_factor(radius_microns, base_mag, patch_size, mm_per_pixel)
+                computed_downsample = compute_downsample_factor(
+                    radius_microns, base_mag, patch_size, mm_per_pixel
+                )
             else:
                 computed_downsample = downsample
 
-            patch_bytes = extract_patch_from_geometry(ts, geometry, patch_size, computed_downsample, base_mag)
+            patch_bytes = extract_patch_from_geometry(
+                ts, geometry, patch_size, computed_downsample, base_mag
+            )
 
             if geometry.geom_type == "Polygon":
                 centroid = geometry.centroid
@@ -363,10 +419,18 @@ def process_row(
             else:
                 raise ValueError(f"Unsupported geometry type: {geometry.geom_type}")
 
-            batch.append((
-                patch_uuid, label, image_id, computed_downsample,
-                centroid.x, centroid.y, geometry.wkt, patch_bytes,  # pyrefly: ignore
-            ))
+            batch.append(
+                (
+                    patch_uuid,
+                    label,
+                    image_id,
+                    computed_downsample,
+                    centroid.x,
+                    centroid.y,
+                    geometry.wkt,
+                    patch_bytes,  # pyrefly: ignore
+                )
+            )
 
             if len(batch) >= PATCH_BATCH_SIZE:
                 patch_store.copy_insert(batch)
@@ -379,11 +443,15 @@ def process_row(
 
     # Move image to permanent storage after the DB session commits cleanly
     if process_row_arg.image and process_row_arg.image.startswith(f"{session_id}/"):
-        final_path = fsman.nas_write.move_to_permanent(session_id, project_id, image_id, image_filename)
+        final_path = fsman.nas_write.move_to_permanent(
+            session_id, project_id, image_id, image_filename
+        )
 
         # Change the image_path in the DB to the new permanent path
         with get_client().get_session() as session:
-            ImageStore(session).update(image_id=image_id, project_id=project_id, image_path=final_path)
+            ImageStore(session).update(
+                image_id=image_id, project_id=project_id, image_path=final_path
+            )
 
     return {"image_id": image_id, "patch_count": total_patches}
 
@@ -407,11 +475,10 @@ class UploadSessionActor:
 
         # Load project settings from the DB at actor startup
         with get_client().get_session() as session:
-            raw = SettingsStore(session).get_all_raw(project_id=project_id, scope=SettingScope.PROJECT)
-            self._settings = {
-                k: _parse_value(v.value, v.type)
-                for k, v in raw.items()
-            }
+            raw = SettingsStore(session).get_all_raw(
+                project_id=project_id, scope=SettingScope.PROJECT
+            )
+            self._settings = {k: _parse_value(v.value, v.type) for k, v in raw.items()}
 
     def __ray_shutdown__(self) -> None:
         try:
@@ -445,7 +512,13 @@ class UploadSessionActor:
         mask_folder: str | None = None,
         patch_csv_folder: str | None = None,
     ) -> dict:
-        return _validate_mixed(self._session_id, self._project_id, image_folder, mask_folder, patch_csv_folder)
+        return _validate_mixed(
+            self._session_id,
+            self._project_id,
+            image_folder,
+            mask_folder,
+            patch_csv_folder,
+        )
 
     def validate_image_csv(self, csv_content: bytes) -> dict:
         return _validate_image_csv(csv_content, self._session_id, self._project_id)
@@ -464,9 +537,9 @@ class UploadSessionActor:
         process_rows = [ProcessRow(**p) for p in paths]
         # Dispatch all tasks, passing pre-loaded settings
         task_refs = [
-            process_row
-                .options(name=f"Import {pr.image}")
-                .remote(pr, self._project_id, self._session_id, self._settings)
+            process_row.options(name=f"Import {pr.image}").remote(
+                pr, self._project_id, self._session_id, self._settings
+            )
             for pr in process_rows
         ]
 

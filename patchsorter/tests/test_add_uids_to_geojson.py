@@ -27,17 +27,32 @@ _GEOJSON_TEMPLATE = {
     "features": [
         {
             "type": "Feature",
-            "geometry": {"type": "Polygon", "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]]]},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]]
+                ],
+            },
             "properties": {"name": "a"},
         },
         {
             "type": "Feature",
-            "geometry": {"type": "Polygon", "coordinates": [[[1.0, 1.0], [2.0, 1.0], [2.0, 2.0], [1.0, 2.0], [1.0, 1.0]]]},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [[1.0, 1.0], [2.0, 1.0], [2.0, 2.0], [1.0, 2.0], [1.0, 1.0]]
+                ],
+            },
             "properties": {"name": "b"},
         },
         {
             "type": "Feature",
-            "geometry": {"type": "Polygon", "coordinates": [[[2.0, 2.0], [3.0, 2.0], [3.0, 3.0], [2.0, 3.0], [2.0, 2.0]]]},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [[2.0, 2.0], [3.0, 2.0], [3.0, 3.0], [2.0, 3.0], [2.0, 2.0]]
+                ],
+            },
             "properties": {"name": "c"},
         },
     ],
@@ -70,6 +85,7 @@ def _field_names(path: str) -> set[str]:
 # ---------------------------------------------------------------------------
 # In-place tests
 # ---------------------------------------------------------------------------
+
 
 def test_inplace_creates_uid_field(tmp_path):
     """uid field is created when it does not previously exist."""
@@ -138,6 +154,7 @@ def test_inplace_preserves_existing_properties(tmp_path):
 # New-file (output_path) tests
 # ---------------------------------------------------------------------------
 
+
 def test_output_path_creates_new_file(tmp_path):
     """Providing output_path creates the destination file."""
     src = tmp_path / "src.geojson"
@@ -188,6 +205,7 @@ def test_output_path_all_features_present(tmp_path):
 # ---------------------------------------------------------------------------
 # Error handling
 # ---------------------------------------------------------------------------
+
 
 def test_raises_for_missing_file(tmp_path):
     """RuntimeError is raised when the input file does not exist."""

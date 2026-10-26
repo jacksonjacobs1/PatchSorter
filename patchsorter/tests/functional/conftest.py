@@ -40,6 +40,7 @@ from patchsorter.db.utils import SessionManager
 # client — TestClient with DB monkeypatched
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="function")
 def client(test_db: SessionManager, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     """Return a ``TestClient`` whose routes use the test database.
@@ -57,6 +58,7 @@ def client(test_db: SessionManager, monkeypatch: pytest.MonkeyPatch) -> TestClie
 # ---------------------------------------------------------------------------
 # seeded_project — committed seed data, torn down without dropping tables
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="function")
 def seeded_project(
@@ -92,7 +94,9 @@ def seeded_project(
                     RETURNING *
                     """
                 )
-            ).mappings().one()
+            )
+            .mappings()
+            .one()
         )
 
         # Seed application-scoped settings manually (world_size is disabled)
@@ -148,9 +152,7 @@ def seeded_project(
             ]
         )
         # Read back patch_ids within the same session before commit
-        patch_ids: list[int] = [
-            r["patch_id"] for r in patch_store.fetch(limit=10)
-        ]
+        patch_ids: list[int] = [r["patch_id"] for r in patch_store.fetch(limit=10)]
 
     # --- Seed predictions (committed separately) -------------------------
     with test_db.get_session() as session:
@@ -172,9 +174,7 @@ def seeded_project(
     # --- Teardown: truncate distributed tables, delete reference rows -----
     with test_db.get_session() as session:
         PatchStore(1, session).clear_predictions()
-        session.execute(
-            text(f"TRUNCATE TABLE {build_table_name(1)}")
-        )
+        session.execute(text(f"TRUNCATE TABLE {build_table_name(1)}"))
         session.execute(text("DELETE FROM label_class WHERE project_id = 1"))
         session.execute(text("DELETE FROM image WHERE project_id = 1"))
         session.execute(text("DELETE FROM settings WHERE project_id = 1"))

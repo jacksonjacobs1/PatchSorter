@@ -68,26 +68,34 @@ class LogStore:
             A list of dicts, one per log entry.
         """
         if level is not None:
-            rows = self._session.execute(
-                text(
-                    """
+            rows = (
+                self._session.execute(
+                    text(
+                        """
                     SELECT * FROM log
                     WHERE level = :level
                     ORDER BY timestamp DESC
                     LIMIT :limit
                     """
-                ),
-                {"level": level, "limit": limit},
-            ).mappings().all()
+                    ),
+                    {"level": level, "limit": limit},
+                )
+                .mappings()
+                .all()
+            )
         else:
-            rows = self._session.execute(
-                text(
-                    """
+            rows = (
+                self._session.execute(
+                    text(
+                        """
                     SELECT * FROM log
                     ORDER BY timestamp DESC
                     LIMIT :limit
                     """
-                ),
-                {"limit": limit},
-            ).mappings().all()
+                    ),
+                    {"limit": limit},
+                )
+                .mappings()
+                .all()
+            )
         return [dict(r) for r in rows]

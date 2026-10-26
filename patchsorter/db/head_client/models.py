@@ -1,4 +1,3 @@
-
 from geoalchemy2 import Geometry
 from sqlalchemy import (
     BigInteger,
@@ -58,50 +57,46 @@ class Base(DeclarativeBase):
 class Project(Base):
     __tablename__ = "project"
 
-    project_id   = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(Integer, primary_key=True, autoincrement=True)
     project_name = Column(Text, nullable=False)
-    description  = Column(Text)
-    creation_ts  = Column(TIMESTAMP, nullable=False, server_default=func.now())
+    description = Column(Text)
+    creation_ts = Column(TIMESTAMP, nullable=False, server_default=func.now())
 
-    images        = relationship("Image",       back_populates="project")
-    label_classes = relationship("LabelClass",  back_populates="project")
-    settings      = relationship("SettingOverride",     back_populates="project")
+    images = relationship("Image", back_populates="project")
+    label_classes = relationship("LabelClass", back_populates="project")
+    settings = relationship("SettingOverride", back_populates="project")
 
 
 class Image(Base):
     __tablename__ = "image"
-    __table_args__ = (
-        UniqueConstraint("project_id", "name"),
-    )
+    __table_args__ = (UniqueConstraint("project_id", "name"),)
 
-    image_id          = Column(Integer, primary_key=True, autoincrement=True)
-    project_id        = Column(Integer, ForeignKey("project.project_id"), nullable=False)
-    name              = Column(Text, nullable=False)
-    image_path        = Column(Text, nullable=False)
-    upload_ts         = Column(TIMESTAMP, nullable=False, server_default=func.now())
-    base_mag          = Column(Float, nullable=False)
-    base_width        = Column(Integer, nullable=False)
-    base_height       = Column(Integer, nullable=False)
+    image_id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(Integer, ForeignKey("project.project_id"), nullable=False)
+    name = Column(Text, nullable=False)
+    image_path = Column(Text, nullable=False)
+    upload_ts = Column(TIMESTAMP, nullable=False, server_default=func.now())
+    base_mag = Column(Float, nullable=False)
+    base_width = Column(Integer, nullable=False)
+    base_height = Column(Integer, nullable=False)
     deepzoom_tilesize = Column(Integer, nullable=False)
-    embedding_x       = Column(Float)
-    embedding_y       = Column(Float)
-    group_id          = Column(Integer)
-    train_test_split  = Column(Integer)
+    embedding_x = Column(Float)
+    embedding_y = Column(Float)
+    group_id = Column(Integer)
+    train_test_split = Column(Integer)
 
     project = relationship("Project", back_populates="images")
 
 
 class LabelClass(Base):
     __tablename__ = "label_class"
-    __table_args__ = (
-        UniqueConstraint("project_id", "name"),
-    )
+    __table_args__ = (UniqueConstraint("project_id", "name"),)
 
     label_class_id = Column(Integer, primary_key=True)
-    project_id     = Column(Integer, ForeignKey("project.project_id"))
-    name           = Column(Text, nullable=False)
-    color_code     = Column(Text)
-    event_ts       = Column(TIMESTAMP, nullable=False, server_default=func.now())
+    project_id = Column(Integer, ForeignKey("project.project_id"))
+    name = Column(Text, nullable=False)
+    color_code = Column(Text)
+    event_ts = Column(TIMESTAMP, nullable=False, server_default=func.now())
 
     project = relationship("Project", back_populates="label_classes")
 
@@ -119,10 +114,14 @@ class SettingOverride(Base):
     )
 
     override_id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id  = Column(Integer, ForeignKey("project.project_id", name="fk_project"), nullable=True)
+    project_id = Column(
+        Integer, ForeignKey("project.project_id", name="fk_project"), nullable=True
+    )
     setting_key = Column(Text, nullable=False)
-    value       = Column(Text, nullable=False)
-    updated_at  = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now()) # TODO: Get rid of custom TIMESTAMP type
+    value = Column(Text, nullable=False)
+    updated_at = Column(
+        TIMESTAMP, server_default=func.now(), onupdate=func.now()
+    )  # TODO: Get rid of custom TIMESTAMP type
 
     project = relationship("Project", back_populates="settings")
 
@@ -130,11 +129,11 @@ class SettingOverride(Base):
 class Log(Base):
     __tablename__ = "log"
 
-    id        = Column(Integer, primary_key=True, autoincrement=True)
-    name      = Column(Text, nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(Text, nullable=False)
     timestamp = Column(TIMESTAMP, nullable=False, server_default=func.now())
-    level     = Column(Text, nullable=False, server_default="INFO")
-    message   = Column(Text, nullable=False, server_default="")
+    level = Column(Text, nullable=False, server_default="INFO")
+    message = Column(Text, nullable=False, server_default="")
 
 
 # ---------------------------------------------------------------------------
@@ -176,16 +175,18 @@ def patch_model(project_id: int) -> type:
                         postgresql_where=text("label_class_id > 0"),
                     ),
                 ),
-                "patch_id":          Column(BigInteger, primary_key=True, autoincrement=True),
-                "patch_uid":         Column(Uuid, unique=False, nullable=True), # we don't need to enforce uniqueness since this is purely for user convenience and not used for any joins or lookups
-                "label_class_id":    Column(SmallInteger, nullable=False),
-                "image_id":          Column(Integer, nullable=False),
+                "patch_id": Column(BigInteger, primary_key=True, autoincrement=True),
+                "patch_uid": Column(
+                    Uuid, unique=False, nullable=True
+                ),  # we don't need to enforce uniqueness since this is purely for user convenience and not used for any joins or lookups
+                "label_class_id": Column(SmallInteger, nullable=False),
+                "image_id": Column(Integer, nullable=False),
                 "downsample_factor": Column(Float, nullable=False),
-                "centroid_x":        Column(Float),
-                "centroid_y":        Column(Float),
-                "polygon":           Column(Geometry("POLYGON")),
-                "patch_image":       Column(LargeBinary, nullable=False),
-                "train_priority":    Column(Float, nullable=True),
+                "centroid_x": Column(Float),
+                "centroid_y": Column(Float),
+                "polygon": Column(Geometry("POLYGON")),
+                "patch_image": Column(LargeBinary, nullable=False),
+                "train_priority": Column(Float, nullable=True),
             },
         )
     return _patch_cache[project_id]
@@ -198,8 +199,14 @@ def pred_patch_model(project_id: int, suffix: str | PredPatchSuffix) -> type:
         project_id: Integer project ID.
         suffix: Either ``'latest'`` or ``'last'``.
     """
-    _suffix_enum = suffix if isinstance(suffix, PredPatchSuffix) else PredPatchSuffix(suffix)
-    cache = _pred_patch_latest_cache if _suffix_enum == PredPatchSuffix.LATEST else _pred_patch_last_cache
+    _suffix_enum = (
+        suffix if isinstance(suffix, PredPatchSuffix) else PredPatchSuffix(suffix)
+    )
+    cache = (
+        _pred_patch_latest_cache
+        if _suffix_enum == PredPatchSuffix.LATEST
+        else _pred_patch_last_cache
+    )
     if project_id not in cache:
         tbl_name = build_pred_table_name(project_id, _suffix_enum)
         _suffix_str = _suffix_enum.value
@@ -215,12 +222,14 @@ def pred_patch_model(project_id: int, suffix: str | PredPatchSuffix) -> type:
                         "grid_cell_j",
                     ),
                 ),
-                "patch_id":       Column(BigInteger, primary_key=True),
-                "embed_x":        Column(Float, nullable=False),
-                "embed_y":        Column(Float, nullable=False),
-                "grid_cell_i":    Column(SmallInteger, nullable=False),
-                "grid_cell_j":    Column(SmallInteger, nullable=False),
-                "event_ts":       Column(TIMESTAMP, nullable=False, server_default=func.now()),
+                "patch_id": Column(BigInteger, primary_key=True),
+                "embed_x": Column(Float, nullable=False),
+                "embed_y": Column(Float, nullable=False),
+                "grid_cell_i": Column(SmallInteger, nullable=False),
+                "grid_cell_j": Column(SmallInteger, nullable=False),
+                "event_ts": Column(
+                    TIMESTAMP, nullable=False, server_default=func.now()
+                ),
                 "label_class_id": Column(SmallInteger, nullable=False),
             },
         )
@@ -249,13 +258,13 @@ def confusion_matrix_model(project_id: int, level: int) -> type:
                         postgresql_where=text("count <= 0"),
                     ),
                 ),
-                "shard_id":    Column(BigInteger, nullable=False, primary_key=True),
+                "shard_id": Column(BigInteger, nullable=False, primary_key=True),
                 "grid_cell_i": Column(SmallInteger, nullable=False, primary_key=True),
                 "grid_cell_j": Column(SmallInteger, nullable=False, primary_key=True),
                 "bucket_date": Column(Date, nullable=False),
-                "pred_label":  Column(SmallInteger, nullable=False, primary_key=True),
-                "gt_label":    Column(SmallInteger, nullable=False, primary_key=True),
-                "count":       Column(Integer, nullable=False),
+                "pred_label": Column(SmallInteger, nullable=False, primary_key=True),
+                "gt_label": Column(SmallInteger, nullable=False, primary_key=True),
+                "count": Column(Integer, nullable=False),
             },
         )
     return _cm_cache[key]

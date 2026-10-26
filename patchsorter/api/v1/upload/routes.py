@@ -21,7 +21,11 @@ router = APIRouter()
 
 def _extract_ray_cause_message(exc: Exception) -> str:
     """Unwrap Ray exceptions to get the root cause message."""
-    if exc.__class__.__name__ == "RayTaskError" and hasattr(exc, "cause") and exc.cause is not None:
+    if (
+        exc.__class__.__name__ == "RayTaskError"
+        and hasattr(exc, "cause")
+        and exc.cause is not None
+    ):
         return str(exc.cause)
     return str(exc)
 

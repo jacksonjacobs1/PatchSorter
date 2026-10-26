@@ -7,6 +7,7 @@ import torch.nn.functional as F
 # SwAV loss (replaces the former NT-Xent/SimCLR embedding loss)
 # ---------------------------------------------------------------------------
 
+
 def _kmeans_prototypes(emb_flat: torch.Tensor, K: int, iters: int = 10) -> torch.Tensor:
     """Simple (batched) k-means on GPU to produce ``K`` prototypes from ``emb_flat``.
 
@@ -28,7 +29,9 @@ def _kmeans_prototypes(emb_flat: torch.Tensor, K: int, iters: int = 10) -> torch
     for _ in range(max(1, int(iters))):
         x_norm = (emb_flat * emb_flat).sum(dim=1)
         c_norm = (centroids * centroids).sum(dim=1)
-        sq = x_norm.unsqueeze(1) + c_norm.unsqueeze(0) - 2.0 * (emb_flat @ centroids.t())
+        sq = (
+            x_norm.unsqueeze(1) + c_norm.unsqueeze(0) - 2.0 * (emb_flat @ centroids.t())
+        )
         sq = sq.clamp(min=0.0)
         labels = sq.argmin(dim=1)
 
@@ -36,7 +39,7 @@ def _kmeans_prototypes(emb_flat: torch.Tensor, K: int, iters: int = 10) -> torch
         sums = sums.index_add(0, labels, emb_flat)
         counts = torch.bincount(labels, minlength=K).unsqueeze(1).to(device)
 
-        empty = (counts.squeeze() == 0)
+        empty = counts.squeeze() == 0
         if empty.any():
             rnd_idx = torch.randperm(N, device=device)[: empty.sum().item()]
             sums[empty] = emb_flat[rnd_idx]
@@ -47,7 +50,9 @@ def _kmeans_prototypes(emb_flat: torch.Tensor, K: int, iters: int = 10) -> torch
     return centroids
 
 
-def _distributed_sinkhorn(out: torch.Tensor, iters: int = 3, eps: float = 0.05) -> torch.Tensor:
+def _distributed_sinkhorn(
+    out: torch.Tensor, iters: int = 3, eps: float = 0.05
+) -> torch.Tensor:
     """Sinkhorn-Knopp iterations to produce balanced soft assignments.
 
     Args:
@@ -133,10 +138,10 @@ def swav_loss(
     return off_diag.mean()
 
 
-
 # ---------------------------------------------------------------------------
 # Semantic head loss (attraction + repulsion in coordinate / embedding space)
 # ---------------------------------------------------------------------------
+
 
 def semantic_head_loss(
     coords: torch.Tensor,
@@ -178,9 +183,7 @@ def semantic_head_loss(
     )
     hinge = F.relu(margin - dists[diff_class])
     repel_loss = (
-        (hinge ** 2).mean()
-        if diff_class.any()
-        else torch.tensor(0.0, device=device)
+        (hinge**2).mean() if diff_class.any() else torch.tensor(0.0, device=device)
     )
     return attract_loss, repel_loss
 
@@ -188,6 +191,7 @@ def semantic_head_loss(
 # ---------------------------------------------------------------------------
 # Prediction losses (supervised + pseudo-label)
 # ---------------------------------------------------------------------------
+
 
 def prediction_loss_sup(
     logits: torch.Tensor,
@@ -225,7 +229,9 @@ def prediction_loss_sup(
     preds = labeled_logits.argmax(dim=-1)
     accuracy = (preds == labeled_labels).float().mean()
     idx = labeled_labels * num_classes + preds
-    confusion = torch.bincount(idx, minlength=num_classes * num_classes).reshape(num_classes, num_classes)
+    confusion = torch.bincount(idx, minlength=num_classes * num_classes).reshape(
+        num_classes, num_classes
+    )
 
     return loss, accuracy, confusion
 
@@ -259,16 +265,16 @@ def prediction_loss_pseudo(
     C = logits.shape[1]
 
     with torch.no_grad():
-        probs_vb = F.softmax(logits.view(V, B, C), dim=2)   # [V, B, C]
-        conf_vb, pred_vb = probs_vb.max(dim=2)               # [V, B]
+        probs_vb = F.softmax(logits.view(V, B, C), dim=2)  # [V, B, C]
+        conf_vb, pred_vb = probs_vb.max(dim=2)  # [V, B]
 
-        one_hot = F.one_hot(pred_vb.T, C)                    # [B, V, C]
-        vote_counts = one_hot.sum(dim=1)                      # [B, C]
-        maj_count, maj_label = vote_counts.max(dim=1)         # [B]
+        one_hot = F.one_hot(pred_vb.T, C)  # [B, V, C]
+        vote_counts = one_hot.sum(dim=1)  # [B, C]
+        maj_count, maj_label = vote_counts.max(dim=1)  # [B]
 
         majority_mask = maj_count > (V // 2)
         conf_mask = (conf_vb.T >= pseudo_thresh).any(dim=1)
-        high_conf_b = majority_mask & conf_mask               # [B]
+        high_conf_b = majority_mask & conf_mask  # [B]
 
     # expand to [V*B]
     high_conf = high_conf_b.unsqueeze(0).expand(V, B).reshape(-1)
@@ -280,7 +286,9 @@ def prediction_loss_pseudo(
     if not pseudo_mask.any():
         return torch.zeros((), device=device), agreed, high_conf
 
-    weight = pseudo_class_weights.to(device) if pseudo_class_weights is not None else None
+    weight = (
+        pseudo_class_weights.to(device) if pseudo_class_weights is not None else None
+    )
     pseudo_loss = F.cross_entropy(
         logits[pseudo_mask],
         agreed[pseudo_mask],
@@ -293,6 +301,7 @@ def prediction_loss_pseudo(
 # ---------------------------------------------------------------------------
 # Symmetric cross-entropy + adaptive-threshold pseudo-label loss
 # ---------------------------------------------------------------------------
+
 
 def reverse_cross_entropy(
     pred_probs: torch.Tensor,
@@ -442,9 +451,14 @@ def prediction_loss_pseudo_sce_adaptive(
     if not pseudo_mask.any():
         return torch.zeros((), device=device), agreed, high_conf
 
-    weight = pseudo_class_weights.to(device) if pseudo_class_weights is not None else None
+    weight = (
+        pseudo_class_weights.to(device) if pseudo_class_weights is not None else None
+    )
     pseudo_loss = sce_loss(
-        logits[pseudo_mask], agreed[pseudo_mask], num_classes=num_classes, class_weights=weight
+        logits[pseudo_mask],
+        agreed[pseudo_mask],
+        num_classes=num_classes,
+        class_weights=weight,
     )
     return pseudo_loss, agreed, high_conf
 
@@ -485,7 +499,9 @@ def neighborhood_loss(
     V, B, _D = z_batch.shape
     k = min(k, B - 1)
     if k < 1:
-        print(f"Warning: k={k} is too small for batch size B={B}, skipping neighborhood loss.")
+        print(
+            f"Warning: k={k} is too small for batch size B={B}, skipping neighborhood loss."
+        )
         return torch.tensor(0.0, device=z_batch.device)
 
     diag_mask = torch.eye(B, dtype=torch.bool, device=z_batch.device)
@@ -495,7 +511,9 @@ def neighborhood_loss(
         with torch.no_grad():
             emb_dists = torch.cdist(z_batch[v], z_batch[v])
             emb_dists_masked = emb_dists.masked_fill(diag_mask, 1e9)
-            neighbor_idx = torch.topk(emb_dists_masked, k=k, largest=False).indices  # [B, k]
+            neighbor_idx = torch.topk(
+                emb_dists_masked, k=k, largest=False
+            ).indices  # [B, k]
             neighbor_dists = emb_dists[torch.arange(B).unsqueeze(1), neighbor_idx]
             weights = 1.0 / (neighbor_dists + 1e-8)
             weights /= weights.sum(dim=1, keepdim=True)
@@ -510,10 +528,13 @@ def neighborhood_loss(
                 _neighborhood_ema_temp = batch_adaptive_temp.detach()
             else:
                 _neighborhood_ema_temp = (
-                    ema_decay * _neighborhood_ema_temp + (1 - ema_decay) * batch_adaptive_temp
+                    ema_decay * _neighborhood_ema_temp
+                    + (1 - ema_decay) * batch_adaptive_temp
                 ).detach()
 
-        log_probs = torch.log_softmax(-proj_dists_masked / _neighborhood_ema_temp.item(), dim=1)
+        log_probs = torch.log_softmax(
+            -proj_dists_masked / _neighborhood_ema_temp.item(), dim=1
+        )
         neighbor_log_probs = log_probs.gather(dim=1, index=neighbor_idx)
         loss += -(weights * neighbor_log_probs).sum(dim=1).mean()
 
@@ -526,6 +547,7 @@ def neighborhood_loss(
 # Kept for backward compatibility; no longer called from the training loop
 # (MMD term dropped in favor of ``rank_uniform_loss``).
 # ---------------------------------------------------------------------------
+
 
 def max_mean_discrepancy(
     coords: torch.Tensor,
@@ -543,13 +565,13 @@ def max_mean_discrepancy(
         Scalar MMD loss.
     """
     coords = coords.float() / grid_size
-    uniform = torch.rand_like(
-        coords.repeat(n_samples // coords.shape[0] + 1, 1)
-    )[:n_samples]
+    uniform = torch.rand_like(coords.repeat(n_samples // coords.shape[0] + 1, 1))[
+        :n_samples
+    ]
 
     def rbf(a: torch.Tensor, b: torch.Tensor, sigma: float = 0.1) -> torch.Tensor:
         diff = a.unsqueeze(0) - b.unsqueeze(1)
-        return torch.exp(-diff.pow(2).sum(-1) / (2 * sigma ** 2))
+        return torch.exp(-diff.pow(2).sum(-1) / (2 * sigma**2))
 
     xx = rbf(coords, coords).mean()
     yy = rbf(uniform, uniform).mean()
@@ -560,6 +582,7 @@ def max_mean_discrepancy(
 # ---------------------------------------------------------------------------
 # Rank-uniform loss (encourages a uniform rank distribution per coordinate axis)
 # ---------------------------------------------------------------------------
+
 
 def decorrelation_loss(coords: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
     """Penalise correlation between the x and y projection coordinates."""
@@ -597,7 +620,7 @@ def rank_uniform_loss(
         vals = coords[:, d]
         ranks = torch.argsort(torch.argsort(vals)).float()
         target = (ranks + 0.5) / B * grid_size
-        loss += F.mse_loss(vals, target.detach()) / (grid_size ** 2)
+        loss += F.mse_loss(vals, target.detach()) / (grid_size**2)
 
     return 10 * (loss + w_decorr * decorrelation_loss(coords))
 
@@ -605,6 +628,7 @@ def rank_uniform_loss(
 # ---------------------------------------------------------------------------
 # Repulsion loss (global point spacing)
 # ---------------------------------------------------------------------------
+
 
 def repulsion_loss(
     coords: torch.Tensor,
@@ -645,13 +669,17 @@ class LabeledRateTracker:
         device: Torch device for weight tensors.
     """
 
-    def __init__(self, nclasses: int, momentum: float = 0.99, device: str = "cpu") -> None:
+    def __init__(
+        self, nclasses: int, momentum: float = 0.99, device: str = "cpu"
+    ) -> None:
         self.momentum = momentum
         self.nclasses = nclasses
         self.device = device
         self.rate: float | None = None
         self.class_freq = torch.zeros(nclasses, dtype=torch.float32, device=device)
-        self.pseudo_class_freq = torch.zeros(nclasses, dtype=torch.float32, device=device)
+        self.pseudo_class_freq = torch.zeros(
+            nclasses, dtype=torch.float32, device=device
+        )
         self.num_updates = 0
 
     def _update_class_weights(
@@ -659,7 +687,9 @@ class LabeledRateTracker:
     ) -> tuple[torch.Tensor, torch.Tensor]:
         total = labels.numel()
         if total == 0:
-            return store, torch.zeros(self.nclasses, dtype=torch.float32, device=self.device)
+            return store, torch.zeros(
+                self.nclasses, dtype=torch.float32, device=self.device
+            )
         counts = torch.zeros(self.nclasses, dtype=torch.float32, device=self.device)
         counts.scatter_add_(
             0,
@@ -695,13 +725,17 @@ class LabeledRateTracker:
         label_freq = None
         if len(valid_labels) > 0:
             self.num_updates += 1
-            new_freq, label_freq = self._update_class_weights(valid_labels, self.class_freq)
+            new_freq, label_freq = self._update_class_weights(
+                valid_labels, self.class_freq
+            )
             with torch.no_grad():
                 self.class_freq.copy_(new_freq)
 
         pseudo_freq = None
         if pseudo_labels is not None and len(pseudo_labels) > 0:
-            new_freq, pseudo_freq = self._update_class_weights(pseudo_labels, self.pseudo_class_freq)
+            new_freq, pseudo_freq = self._update_class_weights(
+                pseudo_labels, self.pseudo_class_freq
+            )
             with torch.no_grad():
                 self.pseudo_class_freq.copy_(new_freq)
 
@@ -725,10 +759,10 @@ class LabeledRateTracker:
         return weights / weights.sum()
 
 
-
 # ---------------------------------------------------------------------------
 # Projection initialisation helper
 # ---------------------------------------------------------------------------
+
 
 def initialize_projection_from_batch(
     backbone: torch.nn.Module,

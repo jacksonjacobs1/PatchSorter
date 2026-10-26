@@ -11,7 +11,9 @@ from sqlalchemy.orm import Session
 from patchsorter.config.constants import SettingScope, SettingType
 from patchsorter.db.head_client.models import SettingOverride
 
-_SETTINGS_DEFAULTS_PATH = Path(__file__).parent.parent.parent / "config" / "settings_defaults.toml"
+_SETTINGS_DEFAULTS_PATH = (
+    Path(__file__).parent.parent.parent / "config" / "settings_defaults.toml"
+)
 
 
 class SettingDisabledError(Exception):
@@ -86,7 +88,10 @@ class SettingsStore:
         self._overrides_cache_project_id: int | None = None
 
     def _get_overrides_cache(self, project_id: int | None) -> dict[tuple, str]:
-        if self._overrides_cache is None or self._overrides_cache_project_id != project_id:
+        if (
+            self._overrides_cache is None
+            or self._overrides_cache_project_id != project_id
+        ):
             self._overrides_cache = self._load_overrides_map(project_id)
             self._overrides_cache_project_id = project_id
         return self._overrides_cache
@@ -132,7 +137,9 @@ class SettingsStore:
         self._require_type(entry, {SettingType.BOOLEAN})
         return self._resolve_raw(entry, project_id).value.lower() in ("true", "1")
 
-    def get_raw(self, setting_key: str, project_id: int | None = None) -> ResolvedSetting:
+    def get_raw(
+        self, setting_key: str, project_id: int | None = None
+    ) -> ResolvedSetting:
         """Return the schema definition and effective value for *setting_key*, regardless of type.
 
         Useful for generic display/export code that doesn't care about the
@@ -167,14 +174,22 @@ class SettingsStore:
 
         # Per setting resolution is performed lazily
         for key, entry in schema.items():
-            if scope is not None and entry.scope != scope: # Skip settings that don't match the requested scope
+            if (
+                scope is not None and entry.scope != scope
+            ):  # Skip settings that don't match the requested scope
                 continue
-            if project_id is None and entry.scope == SettingScope.PROJECT:  # Don't include project-scoped settings if no project_id is provided
+            if (
+                project_id is None and entry.scope == SettingScope.PROJECT
+            ):  # Don't include project-scoped settings if no project_id is provided
                 continue
-            scoped_project_id = project_id if entry.scope == SettingScope.PROJECT else None
+            scoped_project_id = (
+                project_id if entry.scope == SettingScope.PROJECT else None
+            )
             value = overrides.get((key, scoped_project_id), entry.default)
-            result[key] = ResolvedSetting(**entry.model_dump(), value=value, project_id=scoped_project_id)
-        return result 
+            result[key] = ResolvedSetting(
+                **entry.model_dump(), value=value, project_id=scoped_project_id
+            )
+        return result
 
     def get_definition(self, setting_key: str) -> SettingDef:
         """Return the schema definition for *setting_key* (type, scope, default, etc.)."""
@@ -184,7 +199,9 @@ class SettingsStore:
     # Writes
     # ------------------------------------------------------------------
 
-    def update(self, setting_key: str, setting_value: str, project_id: int | None = None) -> None:
+    def update(
+        self, setting_key: str, setting_value: str, project_id: int | None = None
+    ) -> None:
         """Set an override value for *setting_key*, validated against the schema.
 
         Creates the override row if it doesn't exist yet, or updates it if
@@ -216,11 +233,13 @@ class SettingsStore:
         if override is not None:
             override.value = setting_value  # pyrefly: ignore
         else:
-            self._session.add(SettingOverride(
-                setting_key=setting_key,
-                project_id=scoped_project_id,
-                value=setting_value,
-            ))
+            self._session.add(
+                SettingOverride(
+                    setting_key=setting_key,
+                    project_id=scoped_project_id,
+                    value=setting_value,
+                )
+            )
         self._invalidate_cache()
 
     def reset(self, setting_key: str, project_id: int | None = None) -> None:
@@ -244,7 +263,9 @@ class SettingsStore:
             self._session.delete(override)
         self._invalidate_cache()
 
-    def reset_all(self, project_id: int | None = None, scope: SettingScope | None = None) -> None:
+    def reset_all(
+        self, project_id: int | None = None, scope: SettingScope | None = None
+    ) -> None:
         """Delete all overrides for the given scope, reverting everything to defaults.
         ...
         """
@@ -253,7 +274,8 @@ class SettingsStore:
         self._session.execute(
             delete(SettingOverride).where(
                 SettingOverride.setting_key.in_(keys),
-                (SettingOverride.project_id == project_id) | (SettingOverride.project_id.is_(None)),
+                (SettingOverride.project_id == project_id)
+                | (SettingOverride.project_id.is_(None)),
             )
         )
         self._invalidate_cache()
@@ -262,16 +284,21 @@ class SettingsStore:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _resolve_raw(self, entry: SettingDef, project_id: int | None) -> ResolvedSetting:
+    def _resolve_raw(
+        self, entry: SettingDef, project_id: int | None
+    ) -> ResolvedSetting:
         scoped_project_id = project_id if entry.scope == SettingScope.PROJECT else None
         overrides = self._get_overrides_cache(project_id)
         value = overrides.get((entry.key, scoped_project_id), entry.default)
-        return ResolvedSetting(**entry.model_dump(), value=value, project_id=scoped_project_id)
+        return ResolvedSetting(
+            **entry.model_dump(), value=value, project_id=scoped_project_id
+        )
 
     def _load_overrides_map(self, project_id: int | None) -> dict[tuple, str]:
         rows = self._session.scalars(
             select(SettingOverride).where(
-                (SettingOverride.project_id == project_id) | (SettingOverride.project_id.is_(None))
+                (SettingOverride.project_id == project_id)
+                | (SettingOverride.project_id.is_(None))
             )
         ).all()
         return {(row.setting_key, row.project_id): row.value for row in rows}  # pyrefly: ignore
@@ -298,14 +325,20 @@ class SettingsStore:
                 try:
                     int(value)
                 except ValueError:
-                    raise ValueError(f"Setting {key!r} expects an integer value, got {value!r}")
+                    raise ValueError(
+                        f"Setting {key!r} expects an integer value, got {value!r}"
+                    )
             case SettingType.BOOLEAN:
                 if value.lower() not in ("true", "false", "1", "0"):
-                    raise ValueError(f"Setting {key!r} expects a boolean value, got {value!r}")
+                    raise ValueError(
+                        f"Setting {key!r} expects a boolean value, got {value!r}"
+                    )
             case SettingType.ENUM:
                 allowed = entry.allowed_values or []
                 if value not in allowed:
-                    raise ValueError(f"Setting {key!r} must be one of {allowed}, got {value!r}")
+                    raise ValueError(
+                        f"Setting {key!r} must be one of {allowed}, got {value!r}"
+                    )
             case SettingType.STRING:
                 pass  # accepts any value
 
@@ -314,7 +347,9 @@ class SettingsStore:
     def _load_settings_schema() -> dict[str, SettingDef]:
         with _SETTINGS_DEFAULTS_PATH.open("rb") as fh:
             data = tomllib.load(fh)
-        return {key: SettingDef(key=key, **meta) for key, meta in data["settings"].items()}
+        return {
+            key: SettingDef(key=key, **meta) for key, meta in data["settings"].items()
+        }
 
 
 def _parse_setting_value(value: str, setting_type: SettingType) -> object:

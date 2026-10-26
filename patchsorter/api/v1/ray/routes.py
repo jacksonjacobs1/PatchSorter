@@ -1,6 +1,5 @@
 import logging
 
-import ray
 from fastapi import APIRouter, HTTPException, Query
 from ray.util.state import list_tasks
 

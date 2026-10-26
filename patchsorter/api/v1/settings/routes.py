@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -17,7 +16,9 @@ class UpdateSettingRequest(BaseModel):
 
 
 @router.get("/settings/", response_model=list[ResolvedSetting])
-def list_settings(project_id: int | None = None, scope: str | None = None) -> list[ResolvedSetting]:
+def list_settings(
+    project_id: int | None = None, scope: str | None = None
+) -> list[ResolvedSetting]:
     client = get_head_client()
     with client.get_session() as session:
         store = SettingsStore(session)
@@ -37,7 +38,9 @@ def update_setting(
         try:
             store.update(setting_key, body.value, project_id)
         except SettingDisabledError:
-            raise HTTPException(status_code=403, detail=f"Setting '{setting_key}' is read-only")
+            raise HTTPException(
+                status_code=403, detail=f"Setting '{setting_key}' is read-only"
+            )
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
         session.commit()

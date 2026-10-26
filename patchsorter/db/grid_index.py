@@ -3,6 +3,7 @@
 Copied and trimmed from ``prototyping/pre_agent_benchmarks/utils.py``.
 Only the (i, j, level) triple representation is included here.
 """
+
 from __future__ import annotations
 
 import math
@@ -44,7 +45,7 @@ class HierarchicalGridIndexIJPair:
         """Convert a point to a :class:`GridCell` at the specified level."""
         if level < 0:
             raise ValueError("Level must be non-negative")
-        scaled_size = self.cell_size / (2 ** level)
+        scaled_size = self.cell_size / (2**level)
         return GridCell(
             i=math.floor(x / scaled_size),
             j=math.floor(y / scaled_size),
@@ -65,7 +66,7 @@ class HierarchicalGridIndexIJPair:
         if level < 0:
             raise ValueError("Level must be non-negative")
 
-        scaled_size = self.cell_size / (2 ** level)
+        scaled_size = self.cell_size / (2**level)
         min_x, min_y, max_x, max_y = polygon.bounds
 
         i_start = math.floor(min_x / scaled_size)

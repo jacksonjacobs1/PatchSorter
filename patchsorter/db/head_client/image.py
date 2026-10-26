@@ -59,9 +59,10 @@ class ImageStore:
         Returns:
             A dict with all columns of the newly created image row.
         """
-        row = self._session.execute(
-            text(
-                """
+        row = (
+            self._session.execute(
+                text(
+                    """
                 INSERT INTO image (
                     project_id, name, image_path,
                     base_mag, base_width, base_height, deepzoom_tilesize,
@@ -73,21 +74,24 @@ class ImageStore:
                 )
                 RETURNING *
                 """
-            ),
-            {
-                "project_id": project_id,
-                "name": name,
-                "image_path": image_path,
-                "base_mag": base_mag,
-                "base_width": base_width,
-                "base_height": base_height,
-                "deepzoom_tilesize": deepzoom_tilesize,
-                "embedding_x": embedding_x,
-                "embedding_y": embedding_y,
-                "group_id": group_id,
-                "train_test_split": train_test_split,
-            },
-        ).mappings().one()
+                ),
+                {
+                    "project_id": project_id,
+                    "name": name,
+                    "image_path": image_path,
+                    "base_mag": base_mag,
+                    "base_width": base_width,
+                    "base_height": base_height,
+                    "deepzoom_tilesize": deepzoom_tilesize,
+                    "embedding_x": embedding_x,
+                    "embedding_y": embedding_y,
+                    "group_id": group_id,
+                    "train_test_split": train_test_split,
+                },
+            )
+            .mappings()
+            .one()
+        )
         return dict(row)
 
     def get(self, image_id: int, project_id: int) -> Image | None:
@@ -100,11 +104,14 @@ class ImageStore:
         Returns:
             The Image ORM instance if found, None otherwise.
         """
-        return self._session.query(Image).filter_by(
-            image_id=image_id,
-            project_id=project_id,
-        ).first()
-
+        return (
+            self._session.query(Image)
+            .filter_by(
+                image_id=image_id,
+                project_id=project_id,
+            )
+            .first()
+        )
 
     def list_by_project(self, project_id: int) -> list[Image]:
         """Return all images belonging to a project ordered by ``image_id``.
@@ -170,7 +177,10 @@ class ImageStore:
             {"image_id": image_id},
         )
         # Step 2 & 3: remove predictions.
-        for tbl in (build_pred_table_name(n, PredPatchSuffix.LATEST), build_pred_table_name(n, PredPatchSuffix.LAST)):
+        for tbl in (
+            build_pred_table_name(n, PredPatchSuffix.LATEST),
+            build_pred_table_name(n, PredPatchSuffix.LAST),
+        ):
             self._session.execute(
                 text(
                     f"""
@@ -193,7 +203,9 @@ class ImageStore:
             {"image_id": image_id},
         )
 
-    def update(self, image_id: int, project_id: int, image_path: Path | None) -> Image | None:
+    def update(
+        self, image_id: int, project_id: int, image_path: Path | None
+    ) -> Image | None:
         """Update an image row.
 
         Args:

@@ -31,15 +31,14 @@ class SumOver(str, Enum):
 router = APIRouter()
 
 
-
 @router.get("/projects/{project_id}/info", response_model=WorldInfo)
 def info(project_id: int) -> WorldInfo:
     client = get_head_client()
     with client.get_session() as session:
-            settings_store = SettingsStore(session)
-            world_size = settings_store.get_int("world_size", project_id)
-            osm_zoom_offset = settings_store.get_int("osm_zoom_offset", project_id)
-            max_level = settings_store.get_int("max_level", project_id)
+        settings_store = SettingsStore(session)
+        world_size = settings_store.get_int("world_size", project_id)
+        osm_zoom_offset = settings_store.get_int("osm_zoom_offset", project_id)
+        max_level = settings_store.get_int("max_level", project_id)
     return WorldInfo(
         world={
             "x_min": 0,
@@ -84,7 +83,9 @@ def serve_tile(
     if x < 0 or x >= num_tiles or y < 0 or y >= num_tiles:
         return _empty_tile()
 
-    i_min, j_min, i_max, j_max, *_ = _osm_tile_to_bbox(z, x, y, level, max_level, world_size)
+    i_min, j_min, i_max, j_max, *_ = _osm_tile_to_bbox(
+        z, x, y, level, max_level, world_size
+    )
 
     if i_max < i_min or j_max < j_min:
         return _empty_tile()
@@ -97,7 +98,9 @@ def serve_tile(
             bbox=bbox, label_pairs=label_pairs, sum_over_gt=sum_over_gt
         )
 
-    rgb = _make_dist_image(result, label_classes=label_classes, class_indices=class_indices)
+    rgb = _make_dist_image(
+        result, label_classes=label_classes, class_indices=class_indices
+    )
     # Transpose: make_dist_image outputs (n_i*2, n_j*2, 3); swap so rows=j, cols=i.
     rgb = np.transpose(rgb, (1, 0, 2))
 
@@ -107,7 +110,9 @@ def serve_tile(
     return Response(content=buf.getvalue(), media_type="image/png")
 
 
-@router.get("/projects/{project_id}/confusion_matrix", response_model=ConfusionMatrixResponse)
+@router.get(
+    "/projects/{project_id}/confusion_matrix", response_model=ConfusionMatrixResponse
+)
 def get_confusion_matrix(
     project_id: int,
     x_min: float = Query(...),

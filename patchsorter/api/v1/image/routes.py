@@ -27,7 +27,9 @@ def list_images(project_id: int) -> list[ImageResponse]:
     return [ImageResponse.model_validate(r) for r in rows]
 
 
-@router.get("/projects/{project_id}/images/{image_id}/stats/", response_model=ImageStatsResponse)
+@router.get(
+    "/projects/{project_id}/images/{image_id}/stats/", response_model=ImageStatsResponse
+)
 def get_image_stats(project_id: int, image_id: int) -> ImageStatsResponse:
     client = get_head_client()
     with client.get_session() as session:
@@ -42,7 +44,9 @@ def get_image_stats(project_id: int, image_id: int) -> ImageStatsResponse:
             {"image_id": image_id},
         ).scalar()
         labeled_row = session.execute(
-            text(f"SELECT COUNT(*) FROM {tbl} WHERE image_id = :image_id AND label_class_id > 1"),
+            text(
+                f"SELECT COUNT(*) FROM {tbl} WHERE image_id = :image_id AND label_class_id > 1"
+            ),
             {"image_id": image_id},
         ).scalar()
     return ImageStatsResponse(
@@ -64,7 +68,7 @@ def get_image_thumbnail(project_id: int, image_id: int) -> Response:
 
     try:
         slide = large_image.open(row.image_path)
-        thumbnail, mime_type = slide.getThumbnail(format='PNG', width=256, height=256)
+        thumbnail, mime_type = slide.getThumbnail(format="PNG", width=256, height=256)
 
         if isinstance(thumbnail, bytes):
             thumbnail_bytes = thumbnail

@@ -82,7 +82,9 @@ def test_list_patches_cursor_pagination(client: TestClient, seeded_project):
     assert all(p["patch_id"] > last_id for p in page2)
 
 
-def test_list_patches_cursor_zero_returns_first_page(client: TestClient, seeded_project):
+def test_list_patches_cursor_zero_returns_first_page(
+    client: TestClient, seeded_project
+):
     """GET /projects/1/patches/?cursor=0 returns the same result as omitting cursor."""
     resp_default = client.get("/projects/1/patches/?limit=5")
     resp_explicit = client.get("/projects/1/patches/?limit=5&cursor=0")
@@ -108,7 +110,9 @@ def test_list_patches_bbox_filter(client: TestClient, seeded_project):
 def test_list_patches_bbox_no_results(client: TestClient, seeded_project):
     """GET /projects/1/patches/ with bbox that matches no predictions returns empty list."""
     # Use world coordinates that map to grid cells outside the seeded range [0-4]x[0-2]
-    response = client.get("/projects/1/patches/?x_min=1000&y_min=1000&x_max=2000&y_max=2000")
+    response = client.get(
+        "/projects/1/patches/?x_min=1000&y_min=1000&x_max=2000&y_max=2000"
+    )
     assert response.status_code == 200
     assert response.json() == []
 
@@ -175,9 +179,16 @@ def test_sample_by_point_response_shape(client: TestClient, seeded_project):
 
 def test_sample_by_bbox_returns_patches(client: TestClient, seeded_project):
     """GET /sample/by-bbox/patches/ returns patches within the given bbox."""
-    response = client.get("/projects/1/sample/by-bbox/patches/", params={
-        "xmin": 0.0, "xmax": 100.0, "ymin": 0.0, "ymax": 100.0, "num_samples": 4
-    })
+    response = client.get(
+        "/projects/1/sample/by-bbox/patches/",
+        params={
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "ymin": 0.0,
+            "ymax": 100.0,
+            "num_samples": 4,
+        },
+    )
     assert response.status_code == 200
     body = response.json()
     assert len(body) > 0
@@ -185,18 +196,32 @@ def test_sample_by_bbox_returns_patches(client: TestClient, seeded_project):
 
 def test_sample_by_bbox_empty(client: TestClient, seeded_project):
     """GET /sample/by-bbox/patches/ returns empty list for far-away bbox."""
-    response = client.get("/projects/1/sample/by-bbox/patches/", params={
-        "xmin": 99999.0, "xmax": 100000.0, "ymin": 99999.0, "ymax": 100000.0, "num_samples": 4
-    })
+    response = client.get(
+        "/projects/1/sample/by-bbox/patches/",
+        params={
+            "xmin": 99999.0,
+            "xmax": 100000.0,
+            "ymin": 99999.0,
+            "ymax": 100000.0,
+            "num_samples": 4,
+        },
+    )
     assert response.status_code == 200
     assert response.json() == []
 
 
 def test_sample_by_bbox_response_shape(client: TestClient, seeded_project):
     """GET /sample/by-bbox/patches/ items contain both patch and prediction columns."""
-    response = client.get("/projects/1/sample/by-bbox/patches/", params={
-        "xmin": 0.0, "xmax": 100.0, "ymin": 0.0, "ymax": 100.0, "num_samples": 4
-    })
+    response = client.get(
+        "/projects/1/sample/by-bbox/patches/",
+        params={
+            "xmin": 0.0,
+            "xmax": 100.0,
+            "ymin": 0.0,
+            "ymax": 100.0,
+            "num_samples": 4,
+        },
+    )
     assert response.status_code == 200
     item = response.json()[0]
     assert "patch_id" in item

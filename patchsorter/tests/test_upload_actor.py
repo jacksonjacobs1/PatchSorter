@@ -4,7 +4,6 @@ Covers folder mode, file-drop mode (session temp dir only), mixed mode
 (file-drop images + server mask/CSV), and edge cases.
 """
 
-
 import pytest
 
 from patchsorter.api.v1.upload.actor import _validate_mixed
@@ -695,7 +694,9 @@ def test_empty_csv_folder_raises(tmp_path):
     server_csv.mkdir(parents=True)
     (server_csv / "readme.txt").write_text("not a csv")
 
-    with pytest.raises(Exception, match="No valid patch CSV files found in patch CSV folder"):
+    with pytest.raises(
+        Exception, match="No valid patch CSV files found in patch CSV folder"
+    ):
         _validate_mixed(
             str(session),
             image_folder=str(server_img),

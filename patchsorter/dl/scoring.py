@@ -6,6 +6,7 @@ part of a training batch. ``ScoreWriter`` batches the resulting
 ``train_priority`` updates and flushes them to PostgreSQL in the background
 so scoring never blocks the training loop.
 """
+
 from __future__ import annotations
 
 import logging
@@ -62,7 +63,7 @@ def compute_weighting_scores(
 
     queries = proj_emb[labeled_mask]
     labeled_labels = labels[labeled_mask]
-    labeled_ids = ids[labeled_mask[:ids.shape[0]].cpu()]
+    labeled_ids = ids[labeled_mask[: ids.shape[0]].cpu()]
 
     dists = torch.cdist(queries, proj_emb)
     k = min(k_neighbors, dists.shape[1] - 1)
@@ -75,7 +76,9 @@ def compute_weighting_scores(
     # Indexing keeps class_weights' device, not labeled_labels', so index before any .cpu() calls.
     class_rarity = class_weights[labeled_labels]
 
-    combined_rarity = (spatial_alpha * spatial_rarity_normalized) + (class_alpha * class_rarity)
+    combined_rarity = (spatial_alpha * spatial_rarity_normalized) + (
+        class_alpha * class_rarity
+    )
     return labeled_ids, combined_rarity
 
 

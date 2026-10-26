@@ -1,4 +1,3 @@
-# pyrefly: ignore-file
 """Unit tests for confusion_matrix utility functions."""
 
 from unittest.mock import MagicMock
@@ -414,5 +413,6 @@ def test_empty_tile_is_white():
     assert img.size == (256, 256)
     # White with full alpha
     pixel = img.getpixel((0, 0))
+    assert isinstance(pixel, tuple)
     assert pixel[:3] == (255, 255, 255)
     assert pixel[3] == 255

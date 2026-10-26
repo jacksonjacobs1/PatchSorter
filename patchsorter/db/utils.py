@@ -3,17 +3,16 @@
 These were previously defined in the package root but have been moved
 here to keep the package `__init__` small.
 """
+
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from typing import Any
-
-from sqlalchemy import text as sql_text
-from sqlalchemy.sql.elements import TextClause
 
 import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.sql.elements import TextClause
 
 
 class SessionManager:
@@ -71,6 +70,7 @@ class SessionManager:
         pool state and lazily opens fresh connections on first use.
         """
         self.engine.dispose()
+
 
 # This query finds, for every shard in *table_a*, the shard in *table_b*
 # that holds the same set of hash-key ranges (shardminvalue / shardmaxvalue).
@@ -168,7 +168,6 @@ def build_local_worker_shard_map_query(
         current_worker_rank=current_worker_rank,
         groupid=groupid,
     )
-
 
 
 class CitusShardMap:

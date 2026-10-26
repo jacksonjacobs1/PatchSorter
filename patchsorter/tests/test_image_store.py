@@ -3,7 +3,9 @@
 from patchsorter.db.head_client import ImageStore, ProjectStore
 
 
-def _make_image(store: ImageStore, project_id: int, name: str = "slide.svs", **overrides):
+def _make_image(
+    store: ImageStore, project_id: int, name: str = "slide.svs", **overrides
+):
     defaults = {
         "project_id": project_id,
         "name": name,

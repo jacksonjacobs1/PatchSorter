@@ -41,7 +41,9 @@ class ConfusionMatrixStore:
         self.table_name = self.build_table_name(project_id, level)
 
     @staticmethod
-    def build_table_name(project_id: int, level: int | None = None, shard: int | None = None) -> str:
+    def build_table_name(
+        project_id: int, level: int | None = None, shard: int | None = None
+    ) -> str:
         tbl = f"project{project_id}_confusion_matrix_l{''.join(str(level)) if level is not None else ''}"
         if level is not None:
             tbl = f"project{project_id}_confusion_matrix_l{level}"
@@ -100,7 +102,9 @@ class ConfusionMatrixStore:
             *labels*.
         """
         offset = int(labels.min())
-        lookup = np.full(int(labels.max()) - offset + 1, UNASSIGNED_CLASS_ID, dtype=np.int32)
+        lookup = np.full(
+            int(labels.max()) - offset + 1, UNASSIGNED_CLASS_ID, dtype=np.int32
+        )
         lookup[labels - offset] = np.arange(len(labels))
         return lookup, offset
 
@@ -144,9 +148,10 @@ class ConfusionMatrixStore:
             "j_max": j_max,
             **pair_params,
         }
-        rows = self._session.execute(
-            text(
-                f"""
+        rows = (
+            self._session.execute(
+                text(
+                    f"""
                 SELECT gt_label, pred_label, grid_cell_i, grid_cell_j,
                        SUM(count)::int AS patch_count
                 FROM {self.table_name}
@@ -155,15 +160,24 @@ class ConfusionMatrixStore:
                   AND (gt_label, pred_label) IN ({pair_placeholders})
                 GROUP BY gt_label, pred_label, grid_cell_i, grid_cell_j
                 """
-            ),
-            params,
-        ).mappings().all()
+                ),
+                params,
+            )
+            .mappings()
+            .all()
+        )
 
         if not rows:
             return np.empty((0, 5), dtype=np.int32)
         return np.array(
             [
-                [r["gt_label"], r["pred_label"], r["grid_cell_i"], r["grid_cell_j"], r["patch_count"]]
+                [
+                    r["gt_label"],
+                    r["pred_label"],
+                    r["grid_cell_i"],
+                    r["grid_cell_j"],
+                    r["patch_count"],
+                ]
                 for r in rows
             ],
             dtype=np.int32,
@@ -211,9 +225,7 @@ class ConfusionMatrixStore:
         gt_lookup, gt_offset = self._label_lookup(gt_labels)
         pred_lookup, pred_offset = self._label_lookup(pred_labels)
 
-        mat = np.zeros(
-            (len(gt_labels), len(pred_labels), n_i, n_j), dtype=np.int32
-        )
+        mat = np.zeros((len(gt_labels), len(pred_labels), n_i, n_j), dtype=np.int32)
         if len(raw) > 0:
             mat[
                 gt_lookup[raw[:, 0] - gt_offset],
@@ -261,9 +273,7 @@ class ConfusionMatrixStore:
         gt_lookup, gt_offset = self._label_lookup(gt_labels)
         pred_lookup, pred_offset = self._label_lookup(pred_labels)
 
-        mat = np.zeros(
-            (len(gt_labels), len(pred_labels), n_i, n_j), dtype=np.int64
-        )
+        mat = np.zeros((len(gt_labels), len(pred_labels), n_i, n_j), dtype=np.int64)
         if len(raw) > 0:
             mat[
                 gt_lookup[raw[:, 0] - gt_offset],
@@ -275,14 +285,13 @@ class ConfusionMatrixStore:
         confusion = mat.sum(axis=(2, 3))
         return confusion, gt_labels, pred_labels
 
-    
     def clear_confusion_matrix(self):
         """Delete all rows from this confusion matrix's table.
 
-         Used when resetting a project to clear out old confusion matrix data.
-          Note that the table itself (and its Citus shards) are retained and
-          will continue to be updated as new predictions come in; this method
-          just deletes existing rows.
-            """
+        Used when resetting a project to clear out old confusion matrix data.
+         Note that the table itself (and its Citus shards) are retained and
+         will continue to be updated as new predictions come in; this method
+         just deletes existing rows.
+        """
         self._session.execute(text(f"TRUNCATE TABLE {self.table_name};"))
         self._session.commit()

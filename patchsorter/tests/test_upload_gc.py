@@ -151,6 +151,7 @@ def test_terminates_expired_actor(monkeypatch):
     now_ms = 1000 * 60 * 60 * 1000  # 100 hours ago in ms
 
     fake_actor = MagicMock()
+
     def fake_get(key, default=None):
         return {
             "name": f"upload_session_{session_id}",

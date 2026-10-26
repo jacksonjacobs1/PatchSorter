@@ -28,7 +28,6 @@ class LabelAssignByPolygonRequest(BaseModel):
     polygon: dict[str, Any]
 
 
-
 class SampleByPointRequest(BaseModel):
     x: float
     y: float

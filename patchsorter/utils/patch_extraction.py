@@ -1,4 +1,3 @@
-# pyrefly: ignore-file
 from __future__ import annotations
 
 import io
@@ -19,7 +18,9 @@ from patchsorter.db.head_client.patch import PatchStore
 # ---------------------------------------------------------------------------
 
 BASE_MAG_PPM_MICRONS = 0.25  # microns per pixel at 40x base magnification
-MAG_TO_PPM_FACTOR = 10.0  # derived from BASE_MAG_PPM_MICRONS * BASE_MAG (10.0 = 0.25 * 40)
+MAG_TO_PPM_FACTOR = (
+    10.0  # derived from BASE_MAG_PPM_MICRONS * BASE_MAG (10.0 = 0.25 * 40)
+)
 
 
 def mm_per_pixel_at_base(base_mag: float) -> float:
@@ -46,6 +47,7 @@ def _deprecated(func):
             stacklevel=2,
         )
         return func(*args, **kwargs)
+
     return wrapper
 
 
@@ -211,8 +213,21 @@ def _makepatch_geojson(
                     f"{geom.GetGeometryName()}. Only Polygon geometry is supported."
                 )
 
-            patch_bytes = _extract_patch_region(ts, cx, cy, scale, patch_size, magnification)
-            batch.append((uid, label_class_id, image_id, downsample_factor, cx, cy, polygon_wkt, patch_bytes))
+            patch_bytes = _extract_patch_region(
+                ts, cx, cy, scale, patch_size, magnification
+            )
+            batch.append(
+                (
+                    uid,
+                    label_class_id,
+                    image_id,
+                    downsample_factor,
+                    cx,
+                    cy,
+                    polygon_wkt,
+                    patch_bytes,
+                )
+            )
 
             if len(batch) >= batch_size:
                 store.copy_insert(batch)
@@ -310,7 +325,7 @@ def extract_patch_from_geometry(
             f"magnification={magnification}. "
             "The requested crop likely falls outside the tile source bounds."
         )
-    
+
     buf = io.BytesIO()
     if region.mode == "RGBA":
         region = region.convert("RGB")

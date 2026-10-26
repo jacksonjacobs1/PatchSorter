@@ -1,14 +1,15 @@
-# pyrefly: ignore-file
 """Unit tests for SettingsStore."""
 
 import pytest
 
 from patchsorter.config.constants import SettingScope, SettingType
 from patchsorter.db.head_client import ProjectStore, SettingsStore
+from patchsorter.db.head_client.settings import SettingDef
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def project(db_session):
@@ -19,6 +20,7 @@ def project(db_session):
 # ---------------------------------------------------------------------------
 # update
 # ---------------------------------------------------------------------------
+
 
 def test_update_raises_for_disabled_setting(db_session, seeded_project):
     """update() raises SettingDisabledError when the setting is disabled."""
@@ -38,7 +40,9 @@ def test_update_raises_for_invalid_value(db_session, seeded_project):
     """update() raises ValueError when the value fails schema validation."""
     pid = seeded_project["project_id"]
     with pytest.raises(ValueError):
-        SettingsStore(db_session).update("dl_num_workers", "not_a_number", project_id=pid)
+        SettingsStore(db_session).update(
+            "dl_num_workers", "not_a_number", project_id=pid
+        )
 
 
 def test_update_app_level_setting(db_session):
@@ -65,6 +69,7 @@ def test_update_validates_boolean_value():
 # ---------------------------------------------------------------------------
 # get_str / get_int / get_bool
 # ---------------------------------------------------------------------------
+
 
 def test_get_str_raises_for_missing_key(db_session):
     """get_str() raises KeyError when no matching setting exists in schema."""
@@ -127,6 +132,7 @@ def test_get_bool_returns_override(db_session):
 # get_raw / get_all_raw
 # ---------------------------------------------------------------------------
 
+
 def test_get_raw_returns_resolved_setting(db_session, project):
     """get_raw() returns a ResolvedSetting with schema metadata and value."""
     pid = project["project_id"]
@@ -154,7 +160,9 @@ def test_get_raw_raises_for_missing_key(db_session):
 def test_get_all_raw_returns_all_settings(db_session, project):
     """get_all_raw() returns every setting in scope with resolved values."""
     pid = project["project_id"]
-    result = SettingsStore(db_session).get_all_raw(project_id=pid, scope=SettingScope.PROJECT)
+    result = SettingsStore(db_session).get_all_raw(
+        project_id=pid, scope=SettingScope.PROJECT
+    )
     assert isinstance(result, dict)
     assert "dl_num_workers" in result
     assert "dl_patches_per_batch" in result
@@ -182,6 +190,7 @@ def test_get_all_raw_with_scope_filter(db_session):
 # get_definition
 # ---------------------------------------------------------------------------
 
+
 def test_get_definition_returns_schema_entry(db_session):
     """get_definition() returns the SettingDef schema entry."""
     result = SettingsStore(db_session).get_definition("world_size")
@@ -201,6 +210,7 @@ def test_get_definition_raises_for_missing_key(db_session):
 # ---------------------------------------------------------------------------
 # reset
 # ---------------------------------------------------------------------------
+
 
 def test_reset_no_op_when_no_override(db_session, project):
     """reset() is a no-op when no override exists."""
@@ -224,6 +234,7 @@ def test_reset_reverts_to_default(db_session, project):
 # ---------------------------------------------------------------------------
 # reset_all
 # ---------------------------------------------------------------------------
+
 
 def test_reset_all_reverts_all_overrides(db_session, project):
     """reset_all() reverts every setting to its schema default."""
@@ -253,11 +264,15 @@ def test_reset_all_with_scope_filter(db_session, project):
 # _validate_setting (static helper)
 # ---------------------------------------------------------------------------
 
-def _schema_for(key, setting_type, allowed_values=None):
-    entry = {"type": setting_type, "scope": SettingScope.APPLICATION}
-    if allowed_values is not None:
-        entry["allowed_values"] = allowed_values
-    return {key: entry}
+
+def _schema_for(key, setting_type, allowed_values=None) -> SettingDef:
+    return SettingDef(
+        key=key,
+        type=setting_type,
+        scope=SettingScope.APPLICATION,
+        default="",
+        allowed_values=allowed_values,
+    )
 
 
 def test_validate_setting_integer_valid():
@@ -309,6 +324,7 @@ def test_validate_setting_string_accepts_any_value():
 # ---------------------------------------------------------------------------
 # _load_settings_schema (static helper)
 # ---------------------------------------------------------------------------
+
 
 def test_load_settings_schema_returns_expected_keys():
     """_load_settings_schema() returns a dict containing the canonical setting keys."""

@@ -1,4 +1,3 @@
-# pyrefly: ignore-file
 """Live-DB tests for CandidatePool (in-memory scores) and ScoreWriter (DB scores).
 
 Both classes run against the real Citus test database. ``ScoreWriter`` flushes
@@ -6,10 +5,12 @@ from a background thread on its own connection, so the fixture commits its
 seed data (rather than using the rolled-back ``db_session``) and removes it on
 teardown.
 """
+
 import math
 import time
 import uuid
 from collections import namedtuple
+from collections.abc import Generator
 from typing import Any
 
 import numpy as np
@@ -30,7 +31,9 @@ ShardRow = namedtuple("ShardRow", "shard_a shard_b")
 
 
 @pytest.fixture
-def seeded(test_db, _project1_tables, monkeypatch) -> dict[str, Any]:
+def seeded(
+    test_db, _project1_tables, monkeypatch
+) -> Generator[dict[str, Any], None, None]:
     """Commit a project with three labeled patches and one unlabeled patch."""
     with test_db.get_session() as s:
         s.execute(
@@ -41,22 +44,45 @@ def seeded(test_db, _project1_tables, monkeypatch) -> dict[str, Any]:
         )
         lc = LabelClassStore(s).create(PROJECT_ID, "Tumor", "#FF0000")
         image = ImageStore(s).create(
-            project_id=PROJECT_ID, name="s.svs", image_path="/data/s.svs", base_mag=20.0,
-            base_width=1000, base_height=1000, deepzoom_tilesize=256,
+            project_id=PROJECT_ID,
+            name="s.svs",
+            image_path="/data/s.svs",
+            base_mag=20.0,
+            base_width=1000,
+            base_height=1000,
+            deepzoom_tilesize=256,
         )
         store = PatchStore(PROJECT_ID, s)
         labeled = [uuid.uuid4() for _ in range(3)]
         unlabeled = uuid.uuid4()
         store.bulk_insert(
-            [(u, lc["label_class_id"], image["image_id"], 2.0, i, i, None, bytes(16)) for i, u in enumerate(labeled)]
-            + [(unlabeled, UNASSIGNED_CLASS_ID, image["image_id"], 2.0, 9, 9, None, bytes(16))]
+            [
+                (u, lc["label_class_id"], image["image_id"], 2.0, i, i, None, bytes(16))
+                for i, u in enumerate(labeled)
+            ]
+            + [
+                (
+                    unlabeled,
+                    UNASSIGNED_CLASS_ID,
+                    image["image_id"],
+                    2.0,
+                    9,
+                    9,
+                    None,
+                    bytes(16),
+                )
+            ]
         )
         rows = s.execute(
             text("SELECT patch_id, patch_uid FROM project1_patch ORDER BY patch_id")
         ).fetchall()
         # The test cluster has no Citus workers, so project1_patch is a plain table with no
         # physical shards. A view named like a shard stands in for the single local shard.
-        s.execute(text(f"CREATE VIEW project1_patch_{FAKE_SHARD_ID} AS SELECT * FROM project1_patch"))
+        s.execute(
+            text(
+                f"CREATE VIEW project1_patch_{FAKE_SHARD_ID} AS SELECT * FROM project1_patch"
+            )
+        )
 
     by_uid = {r.patch_uid: r.patch_id for r in rows}
     monkeypatch.setattr(datasets.worker_client, "get_client", lambda: test_db)
@@ -79,13 +105,23 @@ def seeded(test_db, _project1_tables, monkeypatch) -> dict[str, Any]:
 
 def db_priorities(sm) -> dict[int, Any]:
     with sm.get_session() as s:
-        return {r.patch_id: r.train_priority for r in s.execute(text("SELECT patch_id, train_priority FROM project1_patch"))}
+        return {
+            r.patch_id: r.train_priority
+            for r in s.execute(
+                text("SELECT patch_id, train_priority FROM project1_patch")
+            )
+        }
 
 
 def set_priorities(sm, values: dict[int, Any]) -> None:
     with sm.get_session() as s:
         for pid, prio in values.items():
-            s.execute(text("UPDATE project1_patch SET train_priority = :p WHERE patch_id = :i"), {"p": prio, "i": pid})
+            s.execute(
+                text(
+                    "UPDATE project1_patch SET train_priority = :p WHERE patch_id = :i"
+                ),
+                {"p": prio, "i": pid},
+            )
 
 
 def make_pool(seeded, pool_size=2048) -> CandidatePool:
@@ -113,6 +149,7 @@ def scores_by_id(pool: CandidatePool) -> dict[int, float]:
 # --------------------------------------------------------------------------
 # CandidatePool
 # --------------------------------------------------------------------------
+
 
 class TestCandidatePool:
     def test_empty_before_refresh(self, seeded):
@@ -160,7 +197,10 @@ class TestCandidatePool:
 
     def test_refresh_empty_when_no_labeled_patches(self, seeded):
         with seeded["sm"].get_session() as s:
-            s.execute(text("UPDATE project1_patch SET label_class_id = :u"), {"u": UNASSIGNED_CLASS_ID})
+            s.execute(
+                text("UPDATE project1_patch SET label_class_id = :u"),
+                {"u": UNASSIGNED_CLASS_ID},
+            )
         pool = make_pool(seeded)
         pool.refresh()
         assert pool.is_empty
@@ -195,7 +235,7 @@ class TestCandidatePool:
         before = pool._scores.copy()
         pool.decay_in_memory_score(1)
         pool.decay_in_memory_score(1)
-        assert pool._scores[1] == pytest.approx(before[1] * GT_SCORE_IN_MEMORY_DECAY ** 2)
+        assert pool._scores[1] == pytest.approx(before[1] * GT_SCORE_IN_MEMORY_DECAY**2)
         assert pool._scores[0] == before[0]
 
     @pytest.mark.parametrize("idx", [-1, 3, 100])
@@ -222,6 +262,7 @@ class TestCandidatePool:
 # --------------------------------------------------------------------------
 # ScoreWriter
 # --------------------------------------------------------------------------
+
 
 class TestScoreWriter:
     def test_close_flushes_pending_to_db(self, seeded):
@@ -268,7 +309,9 @@ class TestScoreWriter:
         try:
             for score in (1.25, 2.5, 3.75):
                 w.enqueue(torch.tensor([a]), torch.tensor([score]))
-                wait_for(lambda s=score: db_priorities(seeded["sm"])[a] == pytest.approx(s))
+                wait_for(
+                    lambda s=score: db_priorities(seeded["sm"])[a] == pytest.approx(s)
+                )
         finally:
             w.close()
 
@@ -279,7 +322,9 @@ class TestScoreWriter:
         w.close()
         assert db_priorities(seeded["sm"])[a] == pytest.approx(5.5)
 
-    def test_flush_failure_is_logged_and_writer_keeps_working(self, seeded, caplog, monkeypatch):
+    def test_flush_failure_is_logged_and_writer_keeps_working(
+        self, seeded, caplog, monkeypatch
+    ):
         a, b, _ = seeded["ids"]
         from patchsorter.dl import scoring
 
@@ -318,6 +363,7 @@ class TestScoreWriter:
 # CandidatePool + ScoreWriter over time
 # --------------------------------------------------------------------------
 
+
 class TestPoolAndWriterOverTime:
     def test_scores_written_then_visible_after_refresh(self, seeded):
         a, b, c = seeded["ids"]
@@ -352,7 +398,9 @@ class TestPoolAndWriterOverTime:
 
         scores = scores_by_id(pool)
         assert scores[b] == pytest.approx(0.5, abs=1e-6)
-        assert scores[a] == pytest.approx(0.5 * math.exp(-datasets.GT_SCORE_DECAY * 100), abs=1e-6)
+        assert scores[a] == pytest.approx(
+            0.5 * math.exp(-datasets.GT_SCORE_DECAY * 100), abs=1e-6
+        )
 
     def test_draw_decay_write_refresh_cycle(self, seeded):
         pool = make_pool(seeded)
@@ -367,7 +415,9 @@ class TestPoolAndWriterOverTime:
 
         # Memory decays immediately; the DB only changes once the writer flushes.
         for _, idx in picks:
-            assert pool._scores[idx] == pytest.approx(datasets.GT_SCORE_INIT * GT_SCORE_IN_MEMORY_DECAY)
+            assert pool._scores[idx] == pytest.approx(
+                datasets.GT_SCORE_INIT * GT_SCORE_IN_MEMORY_DECAY
+            )
         assert all(v is None for v in db_priorities(seeded["sm"]).values())
 
         writer.enqueue(torch.tensor(drawn), torch.tensor([5.25] * len(drawn)))

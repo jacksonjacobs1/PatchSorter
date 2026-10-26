@@ -1,4 +1,3 @@
-# pyrefly: ignore-file
 """
 Pytest fixtures for PatchSorter unit tests.
 
@@ -52,6 +51,7 @@ from typing import Any
 
 import psycopg
 import pytest
+from psycopg import sql
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -67,6 +67,7 @@ from patchsorter.db.utils import SessionManager
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _citus_params() -> dict[str, Any]:
     return {
         "host": os.environ.get("CITUS_HEAD_HOST", "localhost"),
@@ -80,6 +81,7 @@ def _citus_params() -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Session-scoped: create and destroy the test database
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="session")
 def test_db() -> Generator[SessionManager, None, None]:
@@ -104,8 +106,10 @@ def test_db() -> Generator[SessionManager, None, None]:
             "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = %s",
             (p["test_db"],),
         )
-        conn.execute(f'DROP DATABASE IF EXISTS "{p["test_db"]}"')
-        conn.execute(f'CREATE DATABASE "{p["test_db"]}"')
+        conn.execute(
+            sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(p["test_db"]))
+        )
+        conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(p["test_db"])))
 
     with psycopg.connect(test_dsn, autocommit=True) as conn:
         conn.execute("CREATE EXTENSION citus")
@@ -138,12 +142,15 @@ def test_db() -> Generator[SessionManager, None, None]:
             "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = %s",
             (p["test_db"],),
         )
-        conn.execute(f'DROP DATABASE IF EXISTS "{p["test_db"]}"')
+        conn.execute(
+            sql.SQL("DROP DATABASE IF EXISTS {}").format(sql.Identifier(p["test_db"]))
+        )
 
 
 # ---------------------------------------------------------------------------
 # Session-scoped: per-project distributed tables for project_id = 1
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="session")
 def _project1_tables(test_db: SessionManager) -> None:
@@ -166,6 +173,7 @@ def _project1_tables(test_db: SessionManager) -> None:
 # ---------------------------------------------------------------------------
 # Function-scoped: transactional session — rolled back after every test
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="function")
 def db_session(test_db: SessionManager) -> Generator[Session, None, None]:
@@ -190,10 +198,9 @@ def db_session(test_db: SessionManager) -> Generator[Session, None, None]:
 # Function-scoped: fully seeded example project
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="function")
-def example_project(
-    db_session: Session, _project1_tables: None
-) -> dict[str, Any]:
+def example_project(db_session: Session, _project1_tables: None) -> dict[str, Any]:
     """Seed the database with a project, two label classes, one image, and five patches.
 
     Uses ``project_id = 1`` (forced via ``OVERRIDING SYSTEM VALUE``) so that
@@ -218,7 +225,9 @@ def example_project(
                 """
             ),
             {"name": "Test Project", "desc": "Example project for unit tests"},
-        ).mappings().one()
+        )
+        .mappings()
+        .one()
     )
 
     lc_store = LabelClassStore(db_session)
@@ -242,7 +251,18 @@ def example_project(
         pid = uuid.uuid4()
         patch_uuids.append(pid)
         PatchStore(1, db_session).bulk_insert(
-            [(pid, lc_tumor["label_class_id"], image["image_id"], 2.0, i * 10, i * 10, None, bytes(16))]
+            [
+                (
+                    pid,
+                    lc_tumor["label_class_id"],
+                    image["image_id"],
+                    2.0,
+                    i * 10,
+                    i * 10,
+                    None,
+                    bytes(16),
+                )
+            ]
         )
 
     # Get the auto-generated patch_ids for the five inserted patches

@@ -1,5 +1,6 @@
-# pyrefly: ignore-file
 from __future__ import annotations
+
+from typing import Any
 
 import albumentations as A
 import cv2
@@ -29,7 +30,9 @@ class StainPerturbation(A.ImageOnlyTransform):
         )
         self._HE_pinv = np.linalg.pinv(self._HE)
 
-    def apply(self, img: np.ndarray, alpha: np.ndarray, beta: np.ndarray, **_) -> np.ndarray:
+    def apply(
+        self, img: np.ndarray, alpha: np.ndarray, beta: np.ndarray, **_
+    ) -> np.ndarray:
         img = img.astype(np.float32) * (1.0 / 255.0)
         np.clip(img, 1e-6, 1.0, out=img)
 
@@ -71,6 +74,7 @@ def get_transforms(patch_size: int) -> tuple[A.Compose, A.Compose]:
     Returns:
         Tuple of ``(geom_transforms, photo_transforms)``.
     """
+    p: dict[str, Any]
     if patch_size <= 96:
         p = {
             "crop_scale": (0.55, 1.0),
@@ -195,7 +199,9 @@ def get_transforms(patch_size: int) -> tuple[A.Compose, A.Compose]:
 
     photo_transforms = A.Compose(
         [
-            StainPerturbation(sigma=p["stain_sigma"], bias=p["stain_bias"], p=p["stain_p"]),
+            StainPerturbation(
+                sigma=p["stain_sigma"], bias=p["stain_bias"], p=p["stain_p"]
+            ),
             A.ToGray(p=p["grayscale_p"]),
             A.OneOf(
                 [

@@ -60,6 +60,7 @@ class FileStore:
         """
         return self.full_path / str(path)
 
+
 def scan_folder(folder_path: str | Path, valid_exts: set[str]) -> dict[str, Path]:
     """Scan *folder_path* for files with *valid_exts*.
 
@@ -149,7 +150,6 @@ class NASReadStore(FileStore):
         super().__init__("nas_read")
 
 
-
 class UploadStore(FileStore):
     """Per-upload-session temporary storage.
 
@@ -181,7 +181,6 @@ class UploadStore(FileStore):
     def get_patch_csvs_dir(self, session_id: str) -> Path:
         """Return the **full path** to the patch_csvs subdirectory for *session_id*."""
         return self.get_session_dir(session_id) / "patch_csvs"
-
 
     def create_session_dirs(self, session_id: str) -> None:
         """Create the images/, masks/, patch_csvs/ subdirs under the session dir."""

@@ -1,4 +1,3 @@
-# pyrefly: ignore-file
 import argparse
 import json
 
@@ -40,7 +39,8 @@ def fix_and_split(geojson_path: str, output_path: str) -> None:
 
             if geom.geom_type == "GeometryCollection":
                 polys = [
-                    g for g in geom.geoms  # pyrefly: missing-attribute
+                    g
+                    for g in geom.geoms  # pyrefly: missing-attribute
                     if g.geom_type in ("Polygon", "MultiPolygon")
                 ]
                 if polys:
@@ -50,16 +50,20 @@ def fix_and_split(geojson_path: str, output_path: str) -> None:
 
         if geom.geom_type == "MultiPolygon":
             for poly in geom.geoms:  # pyrefly: missing-attribute
-                out_features.append({
-                    **feat,
-                    "geometry": mapping(poly),
-                })
+                out_features.append(
+                    {
+                        **feat,
+                        "geometry": mapping(poly),
+                    }
+                )
             split += len(geom.geoms) - 1  # pyrefly: missing-attribute
         else:
-            out_features.append({
-                **feat,
-                "geometry": mapping(geom),
-            })
+            out_features.append(
+                {
+                    **feat,
+                    "geometry": mapping(geom),
+                }
+            )
 
     data["features"] = out_features
 
@@ -82,13 +86,15 @@ def get_parser() -> argparse.ArgumentParser:
         add_help=True,
     )
     parser.add_argument(
-        "-f", "--file",
+        "-f",
+        "--file",
         required=True,
         metavar="GEOJSON_PATH",
         help="Path to the input GeoJSON file.",
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         required=True,
         metavar="OUTPUT_GEOJSON_PATH",
         help="Write result to this file path.",

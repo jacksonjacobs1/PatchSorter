@@ -49,7 +49,7 @@ def test_expired_actor_cleaned_up(mocker):
     mock_handle = mocker.MagicMock()
     terminate_mock = mocker.MagicMock()
     terminate_mock.remote.return_value = mocker.MagicMock()
-    object.__setattr__(mock_handle, '__ray_terminate__', terminate_mock)
+    object.__setattr__(mock_handle, "__ray_terminate__", terminate_mock)
 
     mocker.patch(
         "patchsorter.api.v1.upload.gc.list_actors",
@@ -136,7 +136,7 @@ def test_cleanup_call_fails_logged(mocker, caplog):
     mock_handle = mocker.MagicMock()
     terminate_mock = mocker.MagicMock()
     terminate_mock.remote.side_effect = RuntimeError("cleanup failed")
-    object.__setattr__(mock_handle, '__ray_terminate__', terminate_mock)
+    object.__setattr__(mock_handle, "__ray_terminate__", terminate_mock)
 
     mocker.patch(
         "patchsorter.api.v1.upload.gc.list_actors",
@@ -150,8 +150,9 @@ def test_cleanup_call_fails_logged(mocker, caplog):
     with caplog.at_level(logging.DEBUG):
         _cleanup_expired_sessions(ttl_seconds=3600)
 
-    assert any("__ray_terminate__() call failed" in record.message for record in caplog.records)
-
+    assert any(
+        "__ray_terminate__() call failed" in record.message for record in caplog.records
+    )
 
 
 def test_ttl_boundary_skips(mocker):
@@ -186,7 +187,7 @@ def test_ttl_boundary_kills_over(mocker):
     mock_handle = mocker.MagicMock()
     terminate_mock = mocker.MagicMock()
     terminate_mock.remote.return_value = mocker.MagicMock()
-    object.__setattr__(mock_handle, '__ray_terminate__', terminate_mock)
+    object.__setattr__(mock_handle, "__ray_terminate__", terminate_mock)
 
     mocker.patch(
         "patchsorter.api.v1.upload.gc.list_actors",
@@ -220,7 +221,9 @@ def test_multiple_actors_only_expired_cleaned(mocker):
     mock_old_handle = mocker.MagicMock()
     mocker.patch(
         "patchsorter.api.v1.upload.gc.ray.get_actor",
-        side_effect=lambda name: mock_fresh_handle if name == "fresh_session" else mock_old_handle,
+        side_effect=lambda name: (
+            mock_fresh_handle if name == "fresh_session" else mock_old_handle
+        ),
     )
     mocker.patch("patchsorter.api.v1.upload.gc.time.time", return_value=now_ms / 1000)
 

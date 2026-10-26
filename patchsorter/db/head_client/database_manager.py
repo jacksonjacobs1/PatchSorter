@@ -40,14 +40,15 @@ class DatabaseManager:
             cur.execute("SELECT * FROM citus_get_active_worker_nodes();")
             return cur.fetchall()
 
-
     def drop_all_tables(self) -> None:
         # check if the project table exists:
         with (
             self.sm.get_connection() as conn,
             conn.cursor() as cur,
         ):
-            cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name = 'project';")
+            cur.execute(
+                "SELECT 1 FROM information_schema.tables WHERE table_name = 'project';"
+            )
             if cur.fetchone() is None:
                 print("No tables found, skipping drop_all_tables.")
                 return
@@ -62,14 +63,13 @@ class DatabaseManager:
                 "SELECT table_schema, table_name FROM information_schema.tables "
                 "WHERE table_schema = 'public' AND table_name LIKE 'project%_%%';"
             )
-            for (schema, tbl) in cur.fetchall():
+            for schema, tbl in cur.fetchall():
                 cur.execute(f"DROP TABLE IF EXISTS {tbl} CASCADE;")
                 print(f"Dropped {schema}.{tbl}")
             conn.commit()
 
     def setup_schema(self) -> None:
-        """Create all tables and extensions required by the application.
-        """
+        """Create all tables and extensions required by the application."""
 
         for key in list(_patch_cache):
             del Base.metadata.tables[build_table_name(key)]
@@ -79,7 +79,7 @@ class DatabaseManager:
             del Base.metadata.tables[build_pred_table_name(key, PredPatchSuffix.LAST)]
         _pred_patch_latest_cache.clear()
         _pred_patch_last_cache.clear()
-        for (pid, lvl) in list(_cm_cache):
+        for pid, lvl in list(_cm_cache):
             del Base.metadata.tables[ConfusionMatrixStore.build_table_name(pid, lvl)]
         _cm_cache.clear()
 
@@ -133,8 +133,9 @@ class DatabaseManager:
                     try:
                         cur.execute(stmt)
                     except Exception as e:  # noqa: BLE001
-                        print(f"Distribution command failed (may already be distributed): {e}")
-                
+                        print(
+                            f"Distribution command failed (may already be distributed): {e}"
+                        )
 
             conn.commit()
 
@@ -154,9 +155,9 @@ class DatabaseManager:
         4. ``RENAME project{N}_pred_patch_tmp → project{N}_pred_patch_latest``
         """
         n = project_id
-        last_table   = build_pred_table_name(n, PredPatchSuffix.LAST)
+        last_table = build_pred_table_name(n, PredPatchSuffix.LAST)
         latest_table = build_pred_table_name(n, PredPatchSuffix.LATEST)
-        tmp_table    = f"project{n}_pred_patch_tmp"
+        tmp_table = f"project{n}_pred_patch_tmp"
         with self.sm.get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(f"TRUNCATE TABLE {last_table};")
@@ -197,19 +198,31 @@ class DatabaseManager:
         ]
         with conn.cursor() as cur:
             for model in models:
-                ddl = str(CreateTable(model.__table__, if_not_exists=True).compile(self.sm.engine))
+                ddl = str(
+                    CreateTable(model.__table__, if_not_exists=True).compile(
+                        self.sm.engine
+                    )
+                )
                 cur.execute(ddl)
-                print(f"Ensured existence of table {model.__tablename__} for project {n}.")
+                print(
+                    f"Ensured existence of table {model.__tablename__} for project {n}."
+                )
                 for index in model.__table__.indexes:
-                    idx_ddl = str(CreateIndex(index, if_not_exists=True).compile(self.sm.engine))
+                    idx_ddl = str(
+                        CreateIndex(index, if_not_exists=True).compile(self.sm.engine)
+                    )
                     cur.execute(idx_ddl)
-                    print(f"Ensured existence of index {index.name} on {model.__tablename__}.")
+                    print(
+                        f"Ensured existence of index {index.name} on {model.__tablename__}."
+                    )
             for stmt in distribution:
                 try:
                     cur.execute(stmt)
                     print(f"Executed distribution command for project {n}: {stmt}")
                 except Exception as exc:  # noqa: BLE001
-                    print(f"Distribution command failed (may already be distributed): {exc}")
+                    print(
+                        f"Distribution command failed (may already be distributed): {exc}"
+                    )
 
     def setup_triggers(self, project_id: int, raw_conn) -> None:
         """Install per-shard statement-level triggers for hierarchical confusion matrix maintenance.
@@ -471,10 +484,18 @@ class DatabaseManager:
         # fresh connection) can see the functions.
         with raw_conn.cursor() as cur:
             cur.execute(insert_trigger_fn_sql)
-            _run_and_check_workers(cur, insert_trigger_fn_sql, f"INSERT trigger function (project {n}) on workers")
+            _run_and_check_workers(
+                cur,
+                insert_trigger_fn_sql,
+                f"INSERT trigger function (project {n}) on workers",
+            )
 
             cur.execute(update_trigger_fn_sql)
-            _run_and_check_workers(cur, update_trigger_fn_sql, f"UPDATE trigger function (project {n}) on workers")
+            _run_and_check_workers(
+                cur,
+                update_trigger_fn_sql,
+                f"UPDATE trigger function (project {n}) on workers",
+            )
 
         raw_conn.commit()
         print(f"Trigger functions committed for project {n}.")
@@ -483,13 +504,17 @@ class DatabaseManager:
         with raw_conn.cursor() as cur:
             _run_and_check_shards(
                 cur,
-                _attach_insert_triggers_sql(build_pred_table_name(n, PredPatchSuffix.LATEST)),
+                _attach_insert_triggers_sql(
+                    build_pred_table_name(n, PredPatchSuffix.LATEST)
+                ),
                 f"Per-shard INSERT triggers on {build_pred_table_name(n, PredPatchSuffix.LATEST)}",
             )
 
             _run_and_check_shards(
                 cur,
-                _attach_insert_triggers_sql(build_pred_table_name(n, PredPatchSuffix.LAST)),
+                _attach_insert_triggers_sql(
+                    build_pred_table_name(n, PredPatchSuffix.LAST)
+                ),
                 f"Per-shard INSERT triggers on {build_pred_table_name(n, PredPatchSuffix.LAST)}",
             )
 
@@ -531,8 +556,7 @@ class DatabaseManager:
 
             self.setup_triggers(project_id, conn)
             conn.commit()
-            
-            
+
     def clear_predictions(self, project_id: int) -> None:
         """Clear all rows from all pred_patch tables across all projects.
 
@@ -565,5 +589,3 @@ class DatabaseManager:
 
         nas_store = NASWriteStore()
         nas_store.delete_project_directory(project_id)
-
-

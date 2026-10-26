@@ -68,14 +68,21 @@ class GeojsonGeometryIterable(GeometryIterable):
             # Extract label from feature properties
             props = feature.items()
             label: int = UNASSIGNED_CLASS_ID
-            for key in (PatchGeoJSONProperties.LABEL, PatchGeoJSONProperties.CLASS_ID, PatchGeoJSONProperties.LABEL_CLASS_ID):
+            for key in (
+                PatchGeoJSONProperties.LABEL,
+                PatchGeoJSONProperties.CLASS_ID,
+                PatchGeoJSONProperties.LABEL_CLASS_ID,
+            ):
                 if key in props and props[key] is not None:
                     label = int(props[key])
                     break
 
             # Extract UUID from feature uid property
             patch_uuid: uuid.UUID | None = None
-            if PatchGeoJSONProperties.UID in props and props[PatchGeoJSONProperties.UID] is not None:
+            if (
+                PatchGeoJSONProperties.UID in props
+                and props[PatchGeoJSONProperties.UID] is not None
+            ):
                 patch_uuid = uuid.UUID(str(props[PatchGeoJSONProperties.UID]))
 
             yield (geom, label, patch_uuid)
@@ -97,12 +104,18 @@ class CsvGeometryIterable(GeometryIterable):
 
             # Extract label from row if available
             label: int = UNASSIGNED_CLASS_ID
-            if PatchCSVColumns.LABEL_CLASS_ID in row and row[PatchCSVColumns.LABEL_CLASS_ID] is not None:
+            if (
+                PatchCSVColumns.LABEL_CLASS_ID in row
+                and row[PatchCSVColumns.LABEL_CLASS_ID] is not None
+            ):
                 label = int(row[PatchCSVColumns.LABEL_CLASS_ID])
 
             # Extract UUID from row if available
             patch_uuid: uuid.UUID | None = None
-            if PatchCSVColumns.PATCH_UID in row and row[PatchCSVColumns.PATCH_UID] is not None:
+            if (
+                PatchCSVColumns.PATCH_UID in row
+                and row[PatchCSVColumns.PATCH_UID] is not None
+            ):
                 patch_uuid = uuid.UUID(str(row[PatchCSVColumns.PATCH_UID]))
 
             yield (geometry, label, patch_uuid)
@@ -122,14 +135,18 @@ class HybridPatchIterable(GeometryIterable):
         if PatchCSVColumns.PATCH_UID in df.columns:
             uid_col = PatchCSVColumns.PATCH_UID
         else:
-            raise ValueError("CSV file must contain a 'patch_uid' column for hybrid mode")
+            raise ValueError(
+                "CSV file must contain a 'patch_uid' column for hybrid mode"
+            )
 
         df[uid_col] = df[uid_col].astype(str)
 
         if PatchCSVColumns.LABEL_CLASS_ID in df.columns:
             # missing values in the label column will be filled with UNASSIGNED_CLASS_ID and converted to int
             df[PatchCSVColumns.LABEL_CLASS_ID] = (
-                df[PatchCSVColumns.LABEL_CLASS_ID].fillna(UNASSIGNED_CLASS_ID).astype(int)
+                df[PatchCSVColumns.LABEL_CLASS_ID]
+                .fillna(UNASSIGNED_CLASS_ID)
+                .astype(int)
             )
         else:
             df[PatchCSVColumns.LABEL_CLASS_ID] = UNASSIGNED_CLASS_ID
@@ -173,7 +190,10 @@ class HybridPatchIterable(GeometryIterable):
 
             yield (geometry, label, patch_uuid)
 
-def create_patch_iterator(mask_path: Path | None = None, csv_path: Path | None = None) -> GeometryIterable:
+
+def create_patch_iterator(
+    mask_path: Path | None = None, csv_path: Path | None = None
+) -> GeometryIterable:
     """Factory function to create the appropriate GeometryIterable based on input files.
 
     Args:
@@ -196,3 +216,5 @@ def create_patch_iterator(mask_path: Path | None = None, csv_path: Path | None =
             return GeojsonGeometryIterable(str(mask_path))
         case (False, True):
             return CsvGeometryIterable(str(csv_path))
+        case _:
+            raise ValueError("At least one of mask_path or csv_path must be provided")

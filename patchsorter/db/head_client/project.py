@@ -43,19 +43,25 @@ class ProjectStore:
             A dict with ``project_id``, ``project_name``, ``description``,
             and ``creation_ts``.
         """
-        row = self._session.execute(
-            text(
-                """
+        row = (
+            self._session.execute(
+                text(
+                    """
                 INSERT INTO project (project_name, description)
                 VALUES (:name, :description)
                 RETURNING project_id, project_name, description, creation_ts
                 """
-            ),
-            {"name": name, "description": description},
-        ).mappings().one()
+                ),
+                {"name": name, "description": description},
+            )
+            .mappings()
+            .one()
+        )
         return dict(row)
 
-    def update(self, project_id: int, name: str | None = None, description: str | None = None) -> dict[str, Any]:
+    def update(
+        self, project_id: int, name: str | None = None, description: str | None = None
+    ) -> dict[str, Any]:
         """Update a project's name and/or description.
 
         Args:
@@ -92,10 +98,14 @@ class ProjectStore:
 
     def get(self, project_id: int) -> dict[str, Any]:
         """Return a single project as a dict, or raise RuntimeError."""
-        row = self._session.execute(
-            text("SELECT * FROM project WHERE project_id = :project_id"),
-            {"project_id": project_id},
-        ).mappings().one_or_none()
+        row = (
+            self._session.execute(
+                text("SELECT * FROM project WHERE project_id = :project_id"),
+                {"project_id": project_id},
+            )
+            .mappings()
+            .one_or_none()
+        )
         if not row:
             raise RuntimeError(f"Project {project_id} not found")
         return dict(row)
@@ -107,12 +117,12 @@ class ProjectStore:
             A list of dicts, one per project.  Empty list if no projects
             exist.
         """
-        rows = self._session.execute(
-            text("SELECT * FROM project ORDER BY project_id")
-        ).mappings().all()
+        rows = (
+            self._session.execute(text("SELECT * FROM project ORDER BY project_id"))
+            .mappings()
+            .all()
+        )
         return [dict(r) for r in rows]
-
-
 
     def delete(self, project_id: int) -> None:
         """Delete a project and all its associated data.
@@ -140,6 +150,4 @@ class ProjectStore:
             self._session.execute(DropTable(model.__table__, if_exists=True))
 
         for model in [LabelClass, Image, SettingOverride, Project]:
-            self._session.execute(
-                delete(model).where(model.project_id == project_id)
-            )
+            self._session.execute(delete(model).where(model.project_id == project_id))

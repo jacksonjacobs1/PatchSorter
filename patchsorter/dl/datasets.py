@@ -6,10 +6,12 @@ must be wrapped with ``DataLoader(..., multiprocessing_context="spawn",
 worker_init_fn=worker_init_fn)`` so each worker owns its own DB connections
 and RNG state.
 """
+
 from __future__ import annotations
 
 import logging
 import random
+from collections.abc import Iterable
 from typing import Any
 
 import cv2
@@ -44,12 +46,14 @@ def worker_init_fn(worker_id: int) -> None:
     way.
     """
     worker_client.get_client().dispose_engine()
-    seed = torch.initial_seed() % (2 ** 32)
+    seed = torch.initial_seed() % (2**32)
     np.random.seed(seed)
     random.seed(seed)
 
 
-def _decode_patch_image(raw: bytes | memoryview | None, patch_size: int) -> np.ndarray | None:
+def _decode_patch_image(
+    raw: bytes | memoryview | None, patch_size: int
+) -> np.ndarray | None:
     """Decode a raw image blob (PNG/JPEG bytes) into a uint8 HxWx3 numpy array.
 
     Returns ``None`` when *raw* is falsy (NULL column value).
@@ -177,12 +181,16 @@ class IterableShardDataset(IterableDataset):
         self.nviews = nviews
         self.label_map = label_map
 
-    def _shard_subset(self) -> CitusShardMap:
+    def _shard_subset(self) -> Iterable[tuple[int, int]]:
         """Partition ``assigned_shards`` across this ``DataLoader``'s worker processes."""
         info = get_worker_info()
         if info is None or info.num_workers <= 1:
-            return self.assigned_shards  # type: ignore[return-value]
-        return [s for i, s in enumerate(self.assigned_shards) if i % info.num_workers == info.id]  # type: ignore[return-value]
+            return self.assigned_shards
+        return [
+            s
+            for i, s in enumerate(self.assigned_shards)
+            if i % info.num_workers == info.id
+        ]
 
     def __iter__(self):
         worker_sm = worker_client.get_client()
@@ -193,21 +201,30 @@ class IterableShardDataset(IterableDataset):
                 cursor_id = WorkerPatchStore(
                     self.project_id, session
                 ).get_cursor_from_shard(pred_patch_latest_shard_id)
-            logger.info("Obtained cursor_id %d for pred_patch_latest_shard_id %d", cursor_id, pred_patch_latest_shard_id)
+            logger.info(
+                "Obtained cursor_id %d for pred_patch_latest_shard_id %d",
+                cursor_id,
+                pred_patch_latest_shard_id,
+            )
 
             while True:
                 with worker_sm.get_session() as session:
-                    rows = WorkerPatchStore(
-                        self.project_id, session
-                    ).fetch_patch_batch(patch_shard_id, cursor_id, self.batch_size)
+                    rows = WorkerPatchStore(self.project_id, session).fetch_patch_batch(
+                        patch_shard_id, cursor_id, self.batch_size
+                    )
                 if not rows:
                     logger.info("No more patches in shard %d", patch_shard_id)
                     break
                 cursor_id = rows[-1]["patch_id"]
 
                 batch = _build_training_batch(
-                    rows, self.patch_size, self.nviews, self.label_map,
-                    geom_transform, photo_transform, shard_id=patch_shard_id,
+                    rows,
+                    self.patch_size,
+                    self.nviews,
+                    self.label_map,
+                    geom_transform,
+                    photo_transform,
+                    shard_id=patch_shard_id,
                 )
                 if batch is not None:
                     yield batch
@@ -336,11 +353,13 @@ class EnrichedInfiniteIterableDataset(IterableDataset):
         self.refresh_every_batches = max(1, refresh_every_batches)
 
     def __iter__(self):
-        pool = CandidatePool(self.project_id, self.assigned_shards, pool_size=self.pool_size)
+        pool = CandidatePool(
+            self.project_id, self.assigned_shards, pool_size=self.pool_size
+        )
         geom_transform, photo_transform = get_transforms(self.patch_size)
         batches_since_refresh = 0
 
-        while True: # Infinite loop to continuously yield training batches.
+        while True:  # Infinite loop to continuously yield training batches.
             if pool.is_empty:
                 pool.refresh()
                 if pool.is_empty:
@@ -353,8 +372,13 @@ class EnrichedInfiniteIterableDataset(IterableDataset):
                 pool.decay_in_memory_score(candidate_idx)
 
             batch = _build_training_batch(
-                rows, self.patch_size, self.nviews, self.label_map,
-                geom_transform, photo_transform, shard_id=None,
+                rows,
+                self.patch_size,
+                self.nviews,
+                self.label_map,
+                geom_transform,
+                photo_transform,
+                shard_id=None,
             )
             yield batch
 

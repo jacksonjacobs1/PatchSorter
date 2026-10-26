@@ -1,5 +1,7 @@
 import io
 import math
+from collections.abc import Sequence
+from typing import Protocol
 
 import matplotlib.colors as mcolors
 import numpy as np
@@ -7,11 +9,16 @@ from fastapi import HTTPException
 from fastapi.responses import Response
 from PIL import Image
 
-from patchsorter.db.head_client.models import LabelClass
+
+class _ColoredLabelClass(Protocol):
+    label_class_id: int
+    color_code: str | None
+
 
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
+
 
 def _parse_label_pairs(lp: list[str] | None) -> list[tuple[int, int]] | None:
     """Parse repeated ?lp=gt,pred query params into a list of (gt, pred) tuples.
@@ -40,8 +47,13 @@ def _parse_label_pairs(lp: list[str] | None) -> list[tuple[int, int]] | None:
 
 
 def _world_to_grid_bbox(
-    x_min: float, y_min: float, x_max: float, y_max: float, level: int,
-    max_level: int, world_size: int,
+    x_min: float,
+    y_min: float,
+    x_max: float,
+    y_max: float,
+    level: int,
+    max_level: int,
+    world_size: int,
 ) -> tuple[int, int, int, int]:
     """Convert embed-space coordinates [0, world_size] to grid bbox at the given level.
 
@@ -71,14 +83,20 @@ def _world_to_grid_bbox(
     y_lo, y_hi = max(0.0, y_lo), min(world, y_hi)
 
     return (
-        int(x_lo / grid_scale), int(y_lo / grid_scale),
-        int(x_hi / grid_scale), int(y_hi / grid_scale),
+        int(x_lo / grid_scale),
+        int(y_lo / grid_scale),
+        int(x_hi / grid_scale),
+        int(y_hi / grid_scale),
     )
 
 
 def _osm_tile_to_bbox(
-    z: int, x: int, y: int, level: int,
-    max_level: int, world_size: int,
+    z: int,
+    x: int,
+    y: int,
+    level: int,
+    max_level: int,
+    world_size: int,
 ) -> tuple[int, int, int, int, float, float, float, float]:
     """Convert OSM tile (z, x, y) to grid bbox at the given aggregation level.
 
@@ -104,7 +122,7 @@ def _osm_tile_to_bbox(
 
 def _make_dist_image(
     region: np.ndarray,
-    label_classes: list[LabelClass],
+    label_classes: Sequence[_ColoredLabelClass],
     class_indices: np.ndarray,
     min_brightness: float = 0.15,
 ) -> np.ndarray:
@@ -134,7 +152,13 @@ def _make_dist_image(
     contested = n_present > 1
     clamped_present = np.clip(n_present, 0, 4)
 
-    sub_alloc = {0: [0, 0, 0, 0], 1: [0, 0, 0, 0], 2: [0, 0, 0, 1], 3: [0, 0, 1, 2], 4: [0, 1, 2, 3]}
+    sub_alloc = {
+        0: [0, 0, 0, 0],
+        1: [0, 0, 0, 0],
+        2: [0, 0, 0, 1],
+        3: [0, 0, 1, 2],
+        4: [0, 1, 2, 3],
+    }
     sub_positions = [(0, 0), (0, 1), (1, 0), (1, 1)]
 
     slot_ranks = np.zeros((4, n_i, n_j), dtype=np.int64)
@@ -168,7 +192,9 @@ def _make_dist_image(
         brightness = np.take_along_axis(log_h_norm, slot_rank[None], axis=0)[0]
         fill_bright = np.maximum(brightness, min_brightness)
         out[dr::sub, dc::sub][contested] = (
-            1.0 - (1.0 - local_colors[class_idx[contested]]) * fill_bright[contested][:, None]
+            1.0
+            - (1.0 - local_colors[class_idx[contested]])
+            * fill_bright[contested][:, None]
         )
 
     return np.clip(out, 0, 1)

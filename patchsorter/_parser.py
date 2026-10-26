@@ -6,7 +6,9 @@ from patchsorter.helper_scripts import split_multipolygons as _split_mp_script
 
 def get_server_argument_parser() -> argparse.ArgumentParser:
     """Parser for `patchsorter server`."""
-    return argparse.ArgumentParser(prog="patchsorter server")  # add_help defaults to True
+    return argparse.ArgumentParser(
+        prog="patchsorter server"
+    )  # add_help defaults to True
 
 
 def get_ui_argument_parser() -> argparse.ArgumentParser:

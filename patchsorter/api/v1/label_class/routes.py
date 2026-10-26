@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, HTTPException
 from sqlalchemy.exc import IntegrityError
 
@@ -14,7 +13,9 @@ from patchsorter.db.head_client.label_class import ColorPalette, LabelClassStore
 router = APIRouter()
 
 
-@router.get("/projects/{project_id}/label_classes/", response_model=list[LabelClassResponse])
+@router.get(
+    "/projects/{project_id}/label_classes/", response_model=list[LabelClassResponse]
+)
 def list_label_classes(project_id: int) -> list[LabelClassResponse]:
     client = get_head_client()
     with client.get_session() as session:
@@ -24,7 +25,10 @@ def list_label_classes(project_id: int) -> list[LabelClassResponse]:
     return [LabelClassResponse.model_validate(lc) for lc in label_classes]
 
 
-@router.get("/projects/{project_id}/label_classes/default", response_model=LabelClassDefaultResponse)
+@router.get(
+    "/projects/{project_id}/label_classes/default",
+    response_model=LabelClassDefaultResponse,
+)
 def get_default_label_class(project_id: int) -> LabelClassDefaultResponse:
     client = get_head_client()
     with client.get_session() as session:
@@ -35,14 +39,19 @@ def get_default_label_class(project_id: int) -> LabelClassDefaultResponse:
     return LabelClassDefaultResponse(color_code=color_code)
 
 
-@router.get("/projects/{project_id}/label_classes/{label_class_id}", response_model=LabelClassResponse)
+@router.get(
+    "/projects/{project_id}/label_classes/{label_class_id}",
+    response_model=LabelClassResponse,
+)
 def get_label_class(project_id: int, label_class_id: int) -> LabelClassResponse:
     client = get_head_client()
     with client.get_session() as session:
         store = LabelClassStore(session)
         label_classes = store.list_by_project(project_id)
         session.expunge_all()
-    match = next((lc for lc in label_classes if lc.label_class_id == label_class_id), None)
+    match = next(
+        (lc for lc in label_classes if lc.label_class_id == label_class_id), None
+    )
     if match is None:
         raise HTTPException(
             status_code=404,
@@ -68,7 +77,10 @@ def create_label_class(project_id: int, body: LabelClassCreate) -> LabelClassRes
     return LabelClassResponse.model_validate(row)
 
 
-@router.put("/projects/{project_id}/label_classes/{label_class_id}", response_model=LabelClassResponse)
+@router.put(
+    "/projects/{project_id}/label_classes/{label_class_id}",
+    response_model=LabelClassResponse,
+)
 def update_label_class(
     project_id: int,
     label_class_id: int,

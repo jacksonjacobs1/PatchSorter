@@ -32,7 +32,10 @@ async def lifespan(app: FastAPI):
 
         start_gc_thread()
     except Exception as exc:  # noqa: BLE001
-        log.warning("Ray initialization skipped — upload sessions will not be available: %s", exc)
+        log.warning(
+            "Ray initialization skipped — upload sessions will not be available: %s",
+            exc,
+        )
 
     # Initialize the database schema on startup.
     try:
@@ -42,7 +45,9 @@ async def lifespan(app: FastAPI):
         DatabaseManager(get_client()).setup_schema()
         log.info("Database schema initialized.")
     except Exception as exc:  # noqa: BLE001
-        log.warning("Database schema setup failed (database may be unavailable): %s", exc)
+        log.warning(
+            "Database schema setup failed (database may be unavailable): %s", exc
+        )
 
     yield
     # Shutdown: GC thread is daemon=True and dies with the process; nothing to clean up.

@@ -42,16 +42,18 @@ def _export_patch_csv(
         store = PatchStore(project_id, session)
         with open(csv_path, "w", newline="") as f:
             writer = csv.writer(f)
-            
-            writer.writerow([
-                PatchCSVColumns.PATCH_ID,
-                PatchCSVColumns.PATCH_UID,
-                PatchCSVColumns.LABEL_CLASS_ID,
-                PatchCSVColumns.CENTROID_X,
-                PatchCSVColumns.CENTROID_Y,
-            ])
 
-            # NOTE: consider using a generator to yield rows rather than performing a paginated query here, to contain all pagination logic in the PatchStore class. 
+            writer.writerow(
+                [
+                    PatchCSVColumns.PATCH_ID,
+                    PatchCSVColumns.PATCH_UID,
+                    PatchCSVColumns.LABEL_CLASS_ID,
+                    PatchCSVColumns.CENTROID_X,
+                    PatchCSVColumns.CENTROID_Y,
+                ]
+            )
+
+            # NOTE: consider using a generator to yield rows rather than performing a paginated query here, to contain all pagination logic in the PatchStore class.
             # Also consider separating pagination logic from other SELECT and WHERE clauses.
             cursor = 0
             while True:
@@ -67,20 +69,24 @@ def _export_patch_csv(
                     break
 
                 for row in rows:
-                    writer.writerow([
-                        row.get(PatchCSVColumns.PATCH_ID),  # NOTE: this is fine unless the csv naming needs to be uncoupled from the database column naming.
-                        row.get(PatchCSVColumns.PATCH_UID, None),
-                        row.get(PatchCSVColumns.LABEL_CLASS_ID),
-                        row.get(PatchCSVColumns.CENTROID_X),
-                        row.get(PatchCSVColumns.CENTROID_Y),
-                    ])
+                    writer.writerow(
+                        [
+                            row.get(
+                                PatchCSVColumns.PATCH_ID
+                            ),  # NOTE: this is fine unless the csv naming needs to be uncoupled from the database column naming.
+                            row.get(PatchCSVColumns.PATCH_UID, None),
+                            row.get(PatchCSVColumns.LABEL_CLASS_ID),
+                            row.get(PatchCSVColumns.CENTROID_X),
+                            row.get(PatchCSVColumns.CENTROID_Y),
+                        ]
+                    )
 
-                cursor = rows[-1].get(PatchCSVColumns.PATCH_ID)
+                cursor = int(rows[-1][PatchCSVColumns.PATCH_ID])
                 if len(rows) < batch_size:
                     break
 
 
-@ray.remote(max_concurrency=1)
+@ray.remote(max_concurrency=1)  # pyrefly: ignore[unexpected-keyword]
 class ExportSessionActor:
     """Per-session Ray actor that owns export paths and dispatches CSV generation tasks.
 
@@ -88,7 +94,9 @@ class ExportSessionActor:
     session at a time.
     """
 
-    def __init__(self, project_id: int, session_id: str, label_class_ids: list[int] | None = None) -> None:
+    def __init__(
+        self, project_id: int, session_id: str, label_class_ids: list[int] | None = None
+    ) -> None:
         if label_class_ids is None:
             label_class_ids = []
         self._project_id = project_id
@@ -103,7 +111,9 @@ class ExportSessionActor:
         except Exception:  # noqa: BLE001, S110
             pass
 
-    def dispatch_tasks(self, images: list[ExportImage], label_class_ids: list[int] | None = None) -> None:
+    def dispatch_tasks(
+        self, images: list[ExportImage], label_class_ids: list[int] | None = None
+    ) -> None:
         """Dispatch _export_patch_csv once per image.
 
         Each call to ``_export_patch_csv.remote()`` creates a Ray child task
@@ -120,9 +130,12 @@ class ExportSessionActor:
         if label_class_ids is None:
             label_class_ids = []
         child_refs = [
-            _export_patch_csv
-                .options(name=f"Export {img.image_name}")
-                .remote(img, self._project_id, self._session_id, label_class_ids if label_class_ids else self._label_class_ids)
+            _export_patch_csv.options(name=f"Export {img.image_name}").remote(
+                img,
+                self._project_id,
+                self._session_id,
+                label_class_ids if label_class_ids else self._label_class_ids,  # pyrefly: ignore[bad-argument-count]
+            )
             for img in images
         ]
 
@@ -134,5 +147,7 @@ class ExportSessionActor:
 
         Used by the download endpoint to locate files.
         """
-        
-        return str(self._fsman.export.get_csv_path(self._session_id, image_id, image_name))
+
+        return str(
+            self._fsman.export.get_csv_path(self._session_id, image_id, image_name)
+        )

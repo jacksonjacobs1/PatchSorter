@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 from sqlalchemy import func, select, text
@@ -53,12 +54,18 @@ class PatchStore:
             ``(table_name, shard_id)`` pairs to their distribution column
             values (min/max bounds).
         """
-        pred_table_latest = build_pred_table_name(self.project_id, PredPatchSuffix.LATEST)
-        query = build_local_node_shard_map_query(self.table_name, pred_table_latest, group_id)
+        pred_table_latest = build_pred_table_name(
+            self.project_id, PredPatchSuffix.LATEST
+        )
+        query = build_local_node_shard_map_query(
+            self.table_name, pred_table_latest, group_id
+        )
         rows = self._session.execute(query).fetchall()
         return CitusShardMap.from_rows(list(rows))  # type: ignore[arg-type]
 
-    def get_local_worker_shard_map(self, num_workers: int, worker_rank: int, group_id) -> CitusShardMap:
+    def get_local_worker_shard_map(
+        self, num_workers: int, worker_rank: int, group_id
+    ) -> CitusShardMap:
         """Return the subset of Citus shards that reside on a **specific ray train worker**.
 
         Queries both the project's ``patch`` table and its
@@ -79,14 +86,18 @@ class PatchStore:
             values (min/max bounds), filtered to only shards on the specified
             worker.
         """
-        pred_table_latest = build_pred_table_name(self.project_id, PredPatchSuffix.LATEST)
-        query = build_local_worker_shard_map_query(self.table_name, pred_table_latest, num_workers, worker_rank, group_id)
+        pred_table_latest = build_pred_table_name(
+            self.project_id, PredPatchSuffix.LATEST
+        )
+        query = build_local_worker_shard_map_query(
+            self.table_name, pred_table_latest, num_workers, worker_rank, group_id
+        )
         rows = self._session.execute(query).fetchall()
         return CitusShardMap.from_rows(list(rows))  # type: ignore[arg-type]
 
     def insert(
         self,
-        patch_uid: int,
+        patch_uid: uuid.UUID,
         label_class_id: int,
         image_id: int,
         downsample_factor: float,
@@ -98,7 +109,7 @@ class PatchStore:
         """Insert a single patch and return the generated ``patch_id``.
 
         Args:
-            patch_uid: External integer identifier for the patch.
+            patch_uid: External UUID identifier for the patch.
             label_class_id: Ground-truth label class for the patch.
             image_id: Foreign key to the parent image.
             downsample_factor: Factor (>1) at which the patch was downsampled
@@ -114,9 +125,10 @@ class PatchStore:
         Returns:
             The ``patch_id`` assigned by the database.
         """
-        row = self._session.execute(
-            text(
-                f"""
+        row = (
+            self._session.execute(
+                text(
+                    f"""
                 INSERT INTO {self.table_name}
                     (patch_uid, label_class_id, image_id, downsample_factor, centroid_x, centroid_y, polygon, patch_image)
                 VALUES (:patch_uid, :label_class_id, :image_id, :downsample_factor, :centroid_x, :centroid_y,
@@ -124,18 +136,21 @@ class PatchStore:
                         :patch_image)
                 RETURNING patch_id
                 """
-            ),
-            {
-                "patch_uid": patch_uid,
-                "label_class_id": label_class_id,
-                "image_id": image_id,
-                "downsample_factor": downsample_factor,
-                "centroid_x": centroid_x,
-                "centroid_y": centroid_y,
-                "polygon": polygon,
-                "patch_image": patch_image,
-            },
-        ).mappings().one()
+                ),
+                {
+                    "patch_uid": patch_uid,
+                    "label_class_id": label_class_id,
+                    "image_id": image_id,
+                    "downsample_factor": downsample_factor,
+                    "centroid_x": centroid_x,
+                    "centroid_y": centroid_y,
+                    "polygon": polygon,
+                    "patch_image": patch_image,
+                },
+            )
+            .mappings()
+            .one()
+        )
         return row["patch_id"]
 
     def bulk_insert(self, records: list[tuple]) -> int:
@@ -239,9 +254,10 @@ class PatchStore:
             A list of dicts, one per patch row.
         """
         image_col = ", patch_image" if include_image else ""
-        rows = self._session.execute(
-            text(
-                f"""
+        rows = (
+            self._session.execute(
+                text(
+                    f"""
                 SELECT patch_id, patch_uid, label_class_id, image_id, downsample_factor,
                        centroid_x, centroid_y, ST_AsGeoJSON(polygon) AS polygon{image_col}
                 FROM {self.table_name}
@@ -249,9 +265,12 @@ class PatchStore:
                 ORDER BY patch_id
                 LIMIT :limit
                 """
-            ),
-            {"limit": limit, "cursor": cursor},
-        ).mappings().all()
+                ),
+                {"limit": limit, "cursor": cursor},
+            )
+            .mappings()
+            .all()
+        )
         return [dict(r) for r in rows]
 
     def fetch_by_shards(self, shard_ids: list[int]) -> list[dict[str, Any]]:
@@ -269,11 +288,15 @@ class PatchStore:
         """
         rows: list[dict[str, Any]] = []
         for shard_id in shard_ids:
-            shard_rows = self._session.execute(
-                text(
-                    f"SELECT patch_id, patch_uid, label_class_id, image_id, downsample_factor, centroid_x, centroid_y FROM {self.table_name}_{shard_id}"
+            shard_rows = (
+                self._session.execute(
+                    text(
+                        f"SELECT patch_id, patch_uid, label_class_id, image_id, downsample_factor, centroid_x, centroid_y FROM {self.table_name}_{shard_id}"
+                    )
                 )
-            ).mappings().all()
+                .mappings()
+                .all()
+            )
             rows.extend(dict(r) for r in shard_rows)
         return rows
 
@@ -353,7 +376,10 @@ class PatchStore:
                 f"UPDATE {self.table_name} SET train_priority = :train_priority"
                 f" WHERE patch_id = :patch_id"
             ),
-            [{"patch_id": pid, "train_priority": priority} for pid, priority in updates],
+            [
+                {"patch_id": pid, "train_priority": priority}
+                for pid, priority in updates
+            ],
         )
         return len(updates)
 
@@ -385,9 +411,7 @@ class PatchStore:
             return 0
 
         # Build (grid_cell_i, grid_cell_j) IN (VALUES …) clause
-        cell_placeholders = ", ".join(
-            f"(:ci_{k}, :cj_{k})" for k in range(len(cells))
-        )
+        cell_placeholders = ", ".join(f"(:ci_{k}, :cj_{k})" for k in range(len(cells)))
         params: dict[str, Any] = {"label_class_id": label_class_id}
         for k, cell in enumerate(cells):
             params[f"ci_{k}"] = cell.i
@@ -548,11 +572,14 @@ class PatchStore:
         if not records:
             return 0
         raw_conn = self._session.connection().connection
-        with raw_conn.cursor() as cur, cur.copy(
-            f"COPY {self.pred_table_latest} "
-            f"(patch_id, embed_x, embed_y, grid_cell_i, grid_cell_j, label_class_id) "
-            f"FROM STDIN"
-        ) as copy:
+        with (
+            raw_conn.cursor() as cur,
+            cur.copy(
+                f"COPY {self.pred_table_latest} "
+                f"(patch_id, embed_x, embed_y, grid_cell_i, grid_cell_j, label_class_id) "
+                f"FROM STDIN"
+            ) as copy,
+        ):
             for row in records:
                 copy.write_row(row)
         return len(records)
@@ -718,7 +745,9 @@ class PatchStore:
                 lp_params[f"lp_gt_{i}"] = gt
                 lp_params[f"lp_pred_{i}"] = pred
 
-        image_col_inner = ",\n                       p.patch_image" if include_image else ""
+        image_col_inner = (
+            ",\n                       p.patch_image" if include_image else ""
+        )
         image_col_outer = ",\n                patch_image" if include_image else ""
 
         sql = text(
@@ -781,7 +810,12 @@ class PatchStore:
             """
         )
 
-        params: dict[str, Any] = {**pred_params, **lp_params, "_cursor": cursor, "_limit": limit}
+        params: dict[str, Any] = {
+            **pred_params,
+            **lp_params,
+            "_cursor": cursor,
+            "_limit": limit,
+        }
         rows = self._session.execute(sql, params).mappings().all()
         return [dict(r) for r in rows]
 
@@ -837,7 +871,7 @@ class PatchStore:
             cursor=cursor,
             limit=limit,
             include_image=include_image,
-            label_pairs=label_pairs
+            label_pairs=label_pairs,
         )
 
     def _paginated_patch(
@@ -902,8 +936,6 @@ class PatchStore:
         rows = self._session.execute(stmt).mappings().all()
         return [dict(r) for r in rows]
 
-
-
     def get_patch_by_id(self, patch_id: int) -> dict[str, Any] | None:
         """Return a single patch row dict by ``patch_id``, including ``patch_image``.
 
@@ -919,11 +951,7 @@ class PatchStore:
             ``None`` if no matching row exists.
         """
         Patch = patch_model(self.project_id)
-        row = (
-            self._session.query(Patch)
-            .filter(Patch.patch_id == patch_id)
-            .first()
-        )
+        row = self._session.query(Patch).filter(Patch.patch_id == patch_id).first()
         return row.__dict__ if row else None
 
     def clear_predictions(self) -> None:
@@ -939,5 +967,13 @@ class PatchStore:
         method, the project will have no predictions until new ones are
         generated by a model inference step.
         """
-        self._session.execute(text(f"TRUNCATE TABLE {build_pred_table_name(self.project_id, PredPatchSuffix.LATEST)};"))
-        self._session.execute(text(f"TRUNCATE TABLE {build_pred_table_name(self.project_id, PredPatchSuffix.LAST)};"))
+        self._session.execute(
+            text(
+                f"TRUNCATE TABLE {build_pred_table_name(self.project_id, PredPatchSuffix.LATEST)};"
+            )
+        )
+        self._session.execute(
+            text(
+                f"TRUNCATE TABLE {build_pred_table_name(self.project_id, PredPatchSuffix.LAST)};"
+            )
+        )

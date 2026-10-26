@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, HTTPException, Query, Response
 from shapely.geometry import shape
 from sqlalchemy import text
@@ -23,22 +22,32 @@ router = APIRouter()
 @router.get("/projects/{project_id}/patches/", response_model=list[PatchResponse])
 def list_patches(
     project_id: int,
-    cursor: int = Query(default=0, description="Keyset cursor: last seen patch_id (exclusive lower bound)"),
+    cursor: int = Query(
+        default=0,
+        description="Keyset cursor: last seen patch_id (exclusive lower bound)",
+    ),
     limit: int = Query(default=20, ge=1, le=500),
     x_min: float | None = Query(default=None),
     y_min: float | None = Query(default=None),
     x_max: float | None = Query(default=None),
     y_max: float | None = Query(default=None),
-    lp: list[str] | None = Query(default=None, description="Label pair filter: repeat for each pair as 'gt,pred' (e.g. lp=0,1&lp=2,2)"),  # noqa: B008
+    lp: list[str] | None = Query(  # noqa: B008
+        default=None,
+        description="Label pair filter: repeat for each pair as 'gt,pred' (e.g. lp=0,1&lp=2,2)",
+    ),
 ) -> list[PatchResponse]:
-    use_bbox = all(v is not None for v in (x_min, y_min, x_max, y_max))
     label_pairs = _parse_label_pairs(lp)
     client = get_head_client()
     with client.get_session() as session:
         # Only enable this when testing EXPLAIN ANALYZE
         # session.execute(text("SET LOCAL citus.enable_local_execution TO OFF"))
         store = PatchStore(project_id, session)
-        if use_bbox:
+        if (
+            x_min is not None
+            and y_min is not None
+            and x_max is not None
+            and y_max is not None
+        ):
             settings_store = SettingsStore(session)
             max_level = settings_store.get_int("max_level", project_id)
             world_size = settings_store.get_int("world_size", project_id)
@@ -49,14 +58,19 @@ def list_patches(
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=str(e))
             rows = store.get_patches_within_grid_bbox(
-                i_min, i_max, j_min, j_max,
+                i_min,
+                i_max,
+                j_min,
+                j_max,
                 cursor=cursor,
                 limit=limit,
                 include_image=False,
                 label_pairs=label_pairs,
             )
         else:
-            rows = store.fetch_predicted(cursor=cursor, limit=limit, include_image=False, label_pairs=label_pairs)
+            rows = store.fetch_predicted(
+                cursor=cursor, limit=limit, include_image=False, label_pairs=label_pairs
+            )
     return [PatchResponse(**r) for r in rows]
 
 
@@ -85,10 +99,14 @@ def get_patch_image(project_id: int, patch_id: int) -> Response:
     client = get_head_client()
     with client.get_session() as session:
         tbl = build_table_name(project_id)
-        row = session.execute(
-            text(f"SELECT patch_image FROM {tbl} WHERE patch_id = :patch_id"),
-            {"patch_id": patch_id},
-        ).mappings().first()
+        row = (
+            session.execute(
+                text(f"SELECT patch_image FROM {tbl} WHERE patch_id = :patch_id"),
+                {"patch_id": patch_id},
+            )
+            .mappings()
+            .first()
+        )
     if not row or not row.get("patch_image"):
         raise HTTPException(status_code=404, detail="Patch image not found")
     return Response(
@@ -113,12 +131,17 @@ def assign_labels_by_ids(
     return LabelAssignResponse(updated=updated)
 
 
-@router.post("/projects/{project_id}/patches/polygonassign", response_model=LabelAssignResponse)
+@router.post(
+    "/projects/{project_id}/patches/polygonassign", response_model=LabelAssignResponse
+)
 def assign_labels_by_polygon(
     project_id: int,
     body: LabelAssignByPolygonRequest,
     label_class_id: int = Query(..., description="Ground-truth label class to assign"),
-    lp: list[str] | None = Query(default=None, description="Label pair filter: repeat for each pair as 'gt,pred' (e.g. lp=0,1&lp=2,2)"),  # noqa: B008
+    lp: list[str] | None = Query(  # noqa: B008
+        default=None,
+        description="Label pair filter: repeat for each pair as 'gt,pred' (e.g. lp=0,1&lp=2,2)",
+    ),
 ) -> LabelAssignResponse:
     polygon = shape(body.polygon)
     label_pairs = _parse_label_pairs(lp)
@@ -133,11 +156,12 @@ def assign_labels_by_polygon(
         )
         store = PatchStore(project_id, session)
         updated = store.bulk_update_labels_by_polygon_bbox(
-            i_min, i_max, j_min, j_max,
+            i_min,
+            i_max,
+            j_min,
+            j_max,
             polygon_wkt=polygon.wkt,
             label_class_id=label_class_id,
             label_pairs=label_pairs,
         )
     return LabelAssignResponse(updated=updated)
-
-

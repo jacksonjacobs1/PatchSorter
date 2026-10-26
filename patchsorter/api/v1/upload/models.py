@@ -21,6 +21,7 @@ class UploadFilesResponse(BaseModel):
 
 class ValidateRequest(BaseModel):
     """Unified validation request — all sources are globbed from the session temp dir."""
+
     image_folder: DirString | None = None
     mask_folder: DirString | None = None
     patch_csv_folder: DirString | None = None

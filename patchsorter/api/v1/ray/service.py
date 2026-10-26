@@ -45,7 +45,10 @@ def start_processing(project_id: int) -> None:
         try:
             if not ray.get(existing.get_termination_signal.remote()):
                 ray.get(existing.set_termination_signal.remote(True))
-                logger.info("Signalled termination on existing actor for project %d.", project_id)
+                logger.info(
+                    "Signalled termination on existing actor for project %d.",
+                    project_id,
+                )
         except Exception:  # noqa: BLE001, S110
             pass
 

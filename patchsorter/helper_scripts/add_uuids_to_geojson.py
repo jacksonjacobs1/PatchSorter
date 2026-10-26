@@ -4,7 +4,9 @@ import uuid
 from osgeo import ogr
 
 
-def add_uids(geojson_path: str, output_path: str | None = None, overwrite_uids: bool = False) -> None:
+def add_uids(
+    geojson_path: str, output_path: str | None = None, overwrite_uids: bool = False
+) -> None:
     """Inject a patchsorter-compatible ``uid`` field (UUID v4 string) into every feature of a GeoJSON file.
 
     By default, modifies the input file in-place using GDAL/OGR. If
@@ -45,8 +47,7 @@ def add_uids(geojson_path: str, output_path: str | None = None, overwrite_uids: 
     layer = datasource.GetLayer(0)
     layer_defn = layer.GetLayerDefn()
     existing_fields = {
-        layer_defn.GetFieldDefn(i).GetName()
-        for i in range(layer_defn.GetFieldCount())
+        layer_defn.GetFieldDefn(i).GetName() for i in range(layer_defn.GetFieldCount())
     }
 
     if "uid" not in existing_fields:
@@ -57,7 +58,9 @@ def add_uids(geojson_path: str, output_path: str | None = None, overwrite_uids: 
     else:
         print("'uid' field already exists — values will be overwritten.")
         if not overwrite_uids:
-            raise RuntimeError("Aborting to avoid overwriting existing 'uid' values. Set overwrite=True to allow this.")
+            raise RuntimeError(
+                "Aborting to avoid overwriting existing 'uid' values. Set overwrite=True to allow this."
+            )
 
     layer.ResetReading()
     count = 0
@@ -71,6 +74,7 @@ def add_uids(geojson_path: str, output_path: str | None = None, overwrite_uids: 
     datasource = None
     print(f"UIDs written to {count} features in {target_path}")
 
+
 def validate_feature_geom_type(feature: ogr.Feature) -> None:
     geom = feature.GetGeometryRef()
     if geom is None:
@@ -81,6 +85,7 @@ def validate_feature_geom_type(feature: ogr.Feature) -> None:
             f"Feature FID={feature.GetFID()} has unsupported geometry type: {ogr.GeometryTypeToName(geom_type)}. Only 'Polygon' is accepted."
         )
 
+
 def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="add_uuids_to_geojson",
@@ -88,13 +93,15 @@ def get_parser() -> argparse.ArgumentParser:
         add_help=True,
     )
     parser.add_argument(
-        "-f", "--file",
+        "-f",
+        "--file",
         required=True,
         metavar="GEOJSON_PATH",
         help="Path to the input GeoJSON file.",
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         metavar="OUTPUT_GEOJSON_PATH",
         help=(
             "Write result to a new file path (input is copied first). "
@@ -104,9 +111,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--overwrite-uids",
         action="store_true",
-        help=(
-            "If UIDs already exist, overwrite them with new UUID v4 values."
-        ),
+        help=("If UIDs already exist, overwrite them with new UUID v4 values."),
     )
 
     return parser
