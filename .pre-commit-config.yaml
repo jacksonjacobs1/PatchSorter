@@ -3,19 +3,24 @@ repos:
     hooks:
       - id: ruff
         name: ruff
-        entry: ruff check --fix patchsorter/
+        entry: ruff check --fix
         language: system
-        types: [python]
+        types_or: [python, pyi]
+        files: ^patchsorter/
+        exclude: ^patchsorter/_version\.py$
         require_serial: true
       - id: ruff-format
         name: ruff format
-        entry: ruff format patchsorter/
+        entry: ruff format
         language: system
-        types: [python]
+        types_or: [python, pyi]
+        files: ^patchsorter/
+        exclude: ^patchsorter/_version\.py$
         require_serial: true
       - id: pyrefly
         name: pyrefly
-        entry: pyrefly check patchsorter/
+        entry: pyrefly check
         language: system
-        types: [python]
+        types_or: [python, pyi]
+        files: ^patchsorter/
         pass_filenames: false
