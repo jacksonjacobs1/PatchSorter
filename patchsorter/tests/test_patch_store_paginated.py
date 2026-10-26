@@ -1,3 +1,4 @@
+# pyrefly: ignore-file
 """Unit tests for PatchStore._paginated_pred_join and .get_patches_within_grid_bbox."""
 
 from __future__ import annotations

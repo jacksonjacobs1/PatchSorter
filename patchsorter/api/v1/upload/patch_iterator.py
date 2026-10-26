@@ -164,7 +164,7 @@ class HybridPatchIterable(GeometryIterable):
             label: int = UNASSIGNED_CLASS_ID
 
             if uid is not None and str(uid) in df.index:
-                label = df.at[str(uid), PatchCSVColumns.LABEL_CLASS_ID]
+                label = int(df.at[str(uid), PatchCSVColumns.LABEL_CLASS_ID])  # pyrefly: ignore
             else:
                 # If the uid is not found in the CSV, we can either raise an error or assign default values.
                 # Here, we choose to assign default values.
@@ -182,7 +182,12 @@ def create_patch_iterator(mask_path: Path | None = None, csv_path: Path | None =
 
     Returns:
         An instance of a subclass of GeometryIterable.
+
+    Raises:
+        ValueError: If neither mask_path nor csv_path is provided.
     """
+    if mask_path is None and csv_path is None:
+        raise ValueError("At least one of mask_path or csv_path must be provided")
 
     match (mask_path is not None, csv_path is not None):
         case (True, True):
@@ -191,5 +196,3 @@ def create_patch_iterator(mask_path: Path | None = None, csv_path: Path | None =
             return GeojsonGeometryIterable(str(mask_path))
         case (False, True):
             return CsvGeometryIterable(str(csv_path))
-        case (False, False):
-            raise ValueError("At least one of mask_path or csv_path must be provided.")

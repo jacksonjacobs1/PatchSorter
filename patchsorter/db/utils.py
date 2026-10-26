@@ -7,6 +7,9 @@ from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from typing import Any
 
+from sqlalchemy import text as sql_text
+from sqlalchemy.sql.elements import TextClause
+
 import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
@@ -113,7 +116,7 @@ def build_local_node_shard_map_query(
     table_a: str,
     table_b: str,
     groupid: int,
-) -> text:
+) -> TextClause:
     """Build a shard mapping query for a single local node.
 
     Returns all shard pairs between *table_a* and *table_b* that reside on
@@ -140,7 +143,7 @@ def build_local_worker_shard_map_query(
     num_workers: int,
     current_worker_rank: int,
     groupid: int,
-) -> text:
+) -> TextClause:
     """Build a shard mapping query filtered to a single ray train worker.
 
     Like ``build_local_node_shard_map_query`` but adds a modulo filter so

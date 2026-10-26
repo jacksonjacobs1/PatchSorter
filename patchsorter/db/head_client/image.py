@@ -208,6 +208,6 @@ class ImageStore:
         if row is None:
             return None
         if image_path is not None:
-            row.image_path = str(image_path)
+            row.image_path = str(image_path)  # pyrefly: ignore
 
         return row

@@ -1,3 +1,4 @@
+# pyrefly: ignore-file
 """Unit tests for confusion_matrix utility functions."""
 
 from unittest.mock import MagicMock

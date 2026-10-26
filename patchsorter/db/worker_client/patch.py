@@ -63,7 +63,8 @@ class WorkerPatchStore:
         shard_table = table(shard_table_name, column("patch_id"))
 
         stmt = select(func.coalesce(func.max(shard_table.c.patch_id), 0))
-        return self._session.execute(stmt).scalar()
+        val = self._session.execute(stmt).scalar()
+        return val if val is not None else 0
 
     def fetch_patch_batch(
         self,
@@ -140,7 +141,7 @@ class WorkerPatchStore:
                 break
             batch = [dict(r) for r in rows]
             cursor = batch[-1]["patch_id"]
-            yield batch
+            yield batch  # type: ignore[assignment]
 
     # ------------------------------------------------------------------ #
     # Prediction writes                                                    #

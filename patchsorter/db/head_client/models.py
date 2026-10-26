@@ -191,24 +191,26 @@ def patch_model(project_id: int) -> type:
     return _patch_cache[project_id]
 
 
-def pred_patch_model(project_id: int, suffix: str) -> type:
+def pred_patch_model(project_id: int, suffix: str | PredPatchSuffix) -> type:
     """Return the ORM model class for ``project{N}_pred_patch_{suffix}``.
 
     Args:
         project_id: Integer project ID.
         suffix: Either ``'latest'`` or ``'last'``.
     """
-    cache = _pred_patch_latest_cache if suffix == PredPatchSuffix.LATEST else _pred_patch_last_cache
+    _suffix_enum = suffix if isinstance(suffix, PredPatchSuffix) else PredPatchSuffix(suffix)
+    cache = _pred_patch_latest_cache if _suffix_enum == PredPatchSuffix.LATEST else _pred_patch_last_cache
     if project_id not in cache:
-        tbl_name = build_pred_table_name(project_id, suffix)
+        tbl_name = build_pred_table_name(project_id, _suffix_enum)
+        _suffix_str = _suffix_enum.value
         cache[project_id] = type(
-            f"PredPatch{suffix.capitalize()}{project_id}",
+            f"PredPatch{_suffix_str.capitalize()}{project_id}",
             (Base,),
             {
                 "__tablename__": tbl_name,
                 "__table_args__": (
                     Index(
-                        f"idx_pred_patch_p{project_id}_{suffix.value}_grid",
+                        f"idx_pred_patch_p{project_id}_{_suffix_str}_grid",
                         "grid_cell_i",
                         "grid_cell_j",
                     ),

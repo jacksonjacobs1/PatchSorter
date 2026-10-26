@@ -160,7 +160,7 @@ class UploadStore(FileStore):
     """
 
     def __init__(self) -> None:
-        super().__init__(Path("nas_write") / "upload_sessions")
+        super().__init__(str(Path("nas_write") / "upload_sessions"))
 
     def get_session_dir(self, session_id: str) -> Path:
         """Return the **full path** to the session directory.
@@ -201,7 +201,7 @@ class ExportStore(FileStore):
     """Per-export-session temporary storage."""
 
     def __init__(self) -> None:
-        super().__init__(Path("nas_write") / "export_sessions")
+        super().__init__(str(Path("nas_write") / "export_sessions"))
 
     def get_session_dir(self, session_id: str) -> Path:
         """Return the full path to the session directory."""

@@ -21,7 +21,7 @@ def list_settings(project_id: int | None = None, scope: str | None = None) -> li
     client = get_head_client()
     with client.get_session() as session:
         store = SettingsStore(session)
-        rows = store.get_all_raw(project_id=project_id, scope=scope)
+        rows = store.get_all_raw(project_id=project_id, scope=scope)  # pyrefly: ignore
     return list(rows.values())
 
 

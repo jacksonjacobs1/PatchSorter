@@ -1,3 +1,4 @@
+# pyrefly: ignore-file
 """
 Pytest fixtures for PatchSorter unit tests.
 

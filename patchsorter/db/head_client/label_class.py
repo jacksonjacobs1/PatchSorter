@@ -113,9 +113,9 @@ class LabelClassStore:
                 f"Label class {label_class_id} not found in project {project_id}"
             )
         if name is not None:
-            row.name = name
+            row.name = name  # pyrefly: ignore
         if color_code is not None:
-            row.color_code = color_code
+            row.color_code = color_code  # pyrefly: ignore
         return {c.name: getattr(row, c.name) for c in row.__table__.columns}
 
     def list_by_project(self, project_id: int) -> list[LabelClassResponse]:

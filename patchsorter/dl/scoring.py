@@ -127,7 +127,7 @@ class ScoreWriter:
         patch_ids = patch_ids.cpu()
         scores = scores.cpu()
         if patch_ids.ndim == 0:
-            self._queue.put((patch_ids.item(), scores.item()))
+            self._queue.put((int(patch_ids.item()), float(scores.item())))  # pyrefly: bad-argument-type
             return
         for pid, score in zip(patch_ids.tolist(), scores.tolist()):
             self._queue.put((pid, score))

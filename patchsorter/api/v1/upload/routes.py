@@ -50,7 +50,7 @@ def _get_actor(session_id: str) -> ray.actor.ActorHandle:
 def open_upload_session(project_id: int) -> OpenSessionResponse:
     """Create a new upload session actor and return its session UUID."""
     session_id = str(uuid.uuid4())
-    UploadSessionActor.options(
+    UploadSessionActor.options(  # pyrefly: ignore
         name=f"upload_session_{session_id}",
         lifetime="detached",
         get_if_exists=False,
@@ -76,7 +76,7 @@ def upload_images(
     actor = _get_actor(session_id)
     filenames = [f.filename or "" for f in files]
     contents = [f.file.read() for f in files]
-    message: str = ray.get(actor.save_images.remote(filenames, contents))
+    message: str = ray.get(actor.save_images.remote(filenames, contents))  # pyrefly: ignore
     return UploadFilesResponse(message=message)
 
 
@@ -93,7 +93,7 @@ def upload_masks(
     actor = _get_actor(session_id)
     filenames = [f.filename or "" for f in files]
     contents = [f.file.read() for f in files]
-    message: str = ray.get(actor.save_masks.remote(filenames, contents))
+    message: str = ray.get(actor.save_masks.remote(filenames, contents))  # pyrefly: ignore
     return UploadFilesResponse(message=message)
 
 
@@ -110,7 +110,7 @@ def upload_patch_csv(
     actor = _get_actor(session_id)
     filenames = [f.filename or "" for f in files]
     contents = [f.file.read() for f in files]
-    message: str = ray.get(actor.save_patch_csvs.remote(filenames, contents))
+    message: str = ray.get(actor.save_patch_csvs.remote(filenames, contents))  # pyrefly: ignore
     return UploadFilesResponse(message=message)
 
 
@@ -131,7 +131,7 @@ def validate_upload(
 ) -> ValidateResponse:
     actor = _get_actor(session_id)
     try:
-        result: dict = ray.get(
+        result: dict = ray.get(  # pyrefly: ignore
             actor.validate_mixed.remote(
                 request.image_folder,
                 request.mask_folder,
@@ -156,7 +156,7 @@ def validate_upload_image_csv(
 ) -> ValidateResponse:
     actor = _get_actor(session_id)
     content = csv_file.file.read()
-    result: dict = ray.get(actor.validate_image_csv.remote(content))
+    result: dict = ray.get(actor.validate_image_csv.remote(content))  # pyrefly: ignore
     return ValidateResponse(**result)
 
 

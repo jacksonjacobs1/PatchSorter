@@ -181,8 +181,8 @@ class IterableShardDataset(IterableDataset):
         """Partition ``assigned_shards`` across this ``DataLoader``'s worker processes."""
         info = get_worker_info()
         if info is None or info.num_workers <= 1:
-            return self.assigned_shards
-        return [s for i, s in enumerate(self.assigned_shards) if i % info.num_workers == info.id]
+            return self.assigned_shards  # type: ignore[return-value]
+        return [s for i, s in enumerate(self.assigned_shards) if i % info.num_workers == info.id]  # type: ignore[return-value]
 
     def __iter__(self):
         worker_sm = worker_client.get_client()

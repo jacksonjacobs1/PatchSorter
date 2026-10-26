@@ -1,3 +1,4 @@
+# pyrefly: ignore-file
 """Unit tests for :class:`~patchsorter.dl.training.LabelMap`."""
 
 

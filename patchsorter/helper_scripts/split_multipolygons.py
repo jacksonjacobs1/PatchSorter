@@ -1,3 +1,4 @@
+# pyrefly: ignore-file
 import argparse
 import json
 
@@ -39,7 +40,7 @@ def fix_and_split(geojson_path: str, output_path: str) -> None:
 
             if geom.geom_type == "GeometryCollection":
                 polys = [
-                    g for g in geom.geoms
+                    g for g in geom.geoms  # pyrefly: missing-attribute
                     if g.geom_type in ("Polygon", "MultiPolygon")
                 ]
                 if polys:
@@ -48,12 +49,12 @@ def fix_and_split(geojson_path: str, output_path: str) -> None:
                     geom = geom.convex_hull
 
         if geom.geom_type == "MultiPolygon":
-            for poly in geom.geoms:
+            for poly in geom.geoms:  # pyrefly: missing-attribute
                 out_features.append({
                     **feat,
                     "geometry": mapping(poly),
                 })
-            split += len(geom.geoms) - 1
+            split += len(geom.geoms) - 1  # pyrefly: missing-attribute
         else:
             out_features.append({
                 **feat,

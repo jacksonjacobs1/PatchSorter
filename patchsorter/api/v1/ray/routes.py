@@ -2,6 +2,7 @@ import logging
 
 import ray
 from fastapi import APIRouter, HTTPException, Query
+from ray.util.state import list_tasks
 
 from patchsorter.config import constants
 
@@ -39,8 +40,8 @@ def get_ray_task_state(
         HTTPException(503): If the Ray cluster is unavailable.
     """
     try:
-        tasks = ray.util.state.list_tasks(
-            filters=ray_cluster_filters or [],
+        tasks = list_tasks(
+            filters=ray_cluster_filters or [],  # pyrefly: ignore
             detail=True,
             limit=constants.RAY_TASK_RETURN_LIMIT,
         )

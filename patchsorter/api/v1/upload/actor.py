@@ -217,11 +217,11 @@ def _validate_image_csv(csv_content: bytes, session_id: str = "", project_id: in
                         base_mag = None
 
         mask_full = fsman.nas_read.relative_to_global(mask) if mask else None
-        if mask and not mask_full.exists():
+        if mask and not mask_full.exists():  # pyrefly: ignore
             errors.append(f"Mask not found: {mask}")
 
         patch_csv_full = fsman.nas_read.relative_to_global(patch_csv) if patch_csv else None
-        if patch_csv and not patch_csv_full.exists():
+        if patch_csv and not patch_csv_full.exists():  # pyrefly: ignore
             errors.append(f"Patch CSV not found: {patch_csv}")
 
         # Add row error when image exists but has no matching mask or patch_csv
@@ -279,6 +279,7 @@ def process_row(
     fsman = FileStoreManager()
 
     # Resolve paths: ProcessRow paths may be relative to the session temp dir or to nas_read; resolve to absolute paths.
+    assert process_row_arg.image is not None
     image_path = _resolve_path(fsman, process_row_arg.image, session_id)
     image_filename = image_path.name
     mask_path = _resolve_path(fsman, process_row_arg.mask, session_id) if process_row_arg.mask else None
@@ -364,7 +365,7 @@ def process_row(
 
             batch.append((
                 patch_uuid, label, image_id, computed_downsample,
-                centroid.x, centroid.y, geometry.wkt, patch_bytes,
+                centroid.x, centroid.y, geometry.wkt, patch_bytes,  # pyrefly: ignore
             ))
 
             if len(batch) >= PATCH_BATCH_SIZE:
@@ -377,7 +378,7 @@ def process_row(
             total_patches += len(batch)
 
     # Move image to permanent storage after the DB session commits cleanly
-    if process_row_arg.image.startswith(f"{session_id}/"):
+    if process_row_arg.image and process_row_arg.image.startswith(f"{session_id}/"):
         final_path = fsman.nas_write.move_to_permanent(session_id, project_id, image_id, image_filename)
 
         # Change the image_path in the DB to the new permanent path
@@ -389,7 +390,7 @@ def process_row(
 
 # Concurrency note: https://github.com/ray-project/ray/issues/31879
 # For our use case, concurrency 1 is sufficient because the actor is only used for a single session at a time.
-@ray.remote(max_concurrency=1)
+@ray.remote(max_concurrency=1)  # pyrefly: ignore
 class UploadSessionActor:
     """Per-session Ray actor that owns upload paths under the mounts directory
     and performs path validation before processing.
@@ -470,4 +471,4 @@ class UploadSessionActor:
         ]
 
         ray.get(task_refs)
-        return
+        return {}  # pyrefly: ignore

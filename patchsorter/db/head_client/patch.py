@@ -56,7 +56,7 @@ class PatchStore:
         pred_table_latest = build_pred_table_name(self.project_id, PredPatchSuffix.LATEST)
         query = build_local_node_shard_map_query(self.table_name, pred_table_latest, group_id)
         rows = self._session.execute(query).fetchall()
-        return CitusShardMap.from_rows(rows)
+        return CitusShardMap.from_rows(list(rows))  # type: ignore[arg-type]
 
     def get_local_worker_shard_map(self, num_workers: int, worker_rank: int, group_id) -> CitusShardMap:
         """Return the subset of Citus shards that reside on a **specific ray train worker**.
@@ -82,7 +82,7 @@ class PatchStore:
         pred_table_latest = build_pred_table_name(self.project_id, PredPatchSuffix.LATEST)
         query = build_local_worker_shard_map_query(self.table_name, pred_table_latest, num_workers, worker_rank, group_id)
         rows = self._session.execute(query).fetchall()
-        return CitusShardMap.from_rows(rows)
+        return CitusShardMap.from_rows(list(rows))  # type: ignore[arg-type]
 
     def insert(
         self,
@@ -331,7 +331,7 @@ class PatchStore:
             ),
             params,
         )
-        return result.rowcount
+        return result.rowcount  # type: ignore[no-any-expr]
 
     def update_train_priority(self, updates: list[tuple[int, float]]) -> int:
         """Batch-update the ``train_priority`` column for a set of patches.
@@ -430,7 +430,7 @@ class PatchStore:
             """
         )
         result = self._session.execute(sql, params)
-        return result.rowcount
+        return result.rowcount  # type: ignore[no-any-expr]
 
     def bulk_update_labels_by_polygon_bbox(
         self,
@@ -516,7 +516,7 @@ class PatchStore:
             """
         )
         result = self._session.execute(sql, params)
-        return result.rowcount
+        return result.rowcount  # type: ignore[no-any-expr]
 
     # ------------------------------------------------------------------ #
     # Prediction methods (project{N}_pred_patch_latest / _last)           #

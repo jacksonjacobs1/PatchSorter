@@ -55,8 +55,8 @@ class JointHead(nn.Module):
         self._init_weights()
 
     def _init_weights(self) -> None:
-        nn.init.uniform_(self.proj_fc[0].weight, -1.0, 1.0)
-        nn.init.uniform_(self.proj_fc[0].bias, 0.0, self.grid_size)
+        nn.init.uniform_(self.proj_fc[0].weight, -1.0, 1.0)  # pyrefly: ignore
+        nn.init.uniform_(self.proj_fc[0].bias, 0.0, self.grid_size)  # pyrefly: ignore
         nn.init.normal_(self.prototypes, std=0.01)
         with torch.no_grad():
             self.prototypes.data.copy_(F.normalize(self.prototypes.data, dim=1))

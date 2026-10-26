@@ -238,8 +238,8 @@ def _warm_start_projection_head(
         imgs = peek_batch.imgs.float().div_(255.0).to(device)
         initialize_projection_from_batch(raw_backbone, raw_head, imgs, grid_size=GRID_SIZE)
 
-    dist.broadcast(raw_head.proj_fc[0].weight.data, src=0)
-    dist.broadcast(raw_head.proj_fc[0].bias.data, src=0)
+    dist.broadcast(raw_head.proj_fc[0].weight.data, src=0)  # pyrefly: ignore
+    dist.broadcast(raw_head.proj_fc[0].bias.data, src=0)  # pyrefly: ignore
 
 
 def train_worker(config: dict[str, Any]) -> None:
@@ -423,7 +423,7 @@ def train_worker(config: dict[str, Any]) -> None:
 
                     prototypes = getattr(joint_head, "module", joint_head).prototypes
                     swav_emb_loss = swav_loss(
-                        proj_emb, prototypes=prototypes,
+                        proj_emb, prototypes=prototypes,  # pyrefly: ignore
                         kmeans_iters=SWAV_KMEANS_ITERS, sinkhorn_iters=SWAV_SINKHORN_ITERS,
                         eps=SWAV_EPS,
                     )
@@ -469,7 +469,7 @@ def train_worker(config: dict[str, Any]) -> None:
                     # per-patch values (block-repeated, not interleaved) — take the first block.
                     labeled_rate, _, num_pseudo = label_tracker.update(
                         raw_labels[:nbase_ids].to(device),
-                        pred_labels[high_conf].view(NVIEWS, -1)[0] if high_conf is not None and high_conf.any() else None,
+                        pred_labels[high_conf].view(NVIEWS, -1)[0] if high_conf is not None and high_conf.any() else None,  # pyrefly: ignore
                     )
 
                     # Compute the total loss as a weighted sum of all individual losses.
@@ -491,8 +491,8 @@ def train_worker(config: dict[str, Any]) -> None:
                 scaler.update()
 
                 with torch.no_grad():
-                    getattr(joint_head, "module", joint_head).prototypes.data.copy_(
-                        torch.nn.functional.normalize(getattr(joint_head, "module", joint_head).prototypes.data, dim=1)
+                    getattr(joint_head, "module", joint_head).prototypes.data.copy_(  # pyrefly: ignore
+                        torch.nn.functional.normalize(getattr(joint_head, "module", joint_head).prototypes.data, dim=1)  # pyrefly: ignore
                     )
 
                 # Update train_priority for the sequential part only.
@@ -504,7 +504,7 @@ def train_worker(config: dict[str, Any]) -> None:
                         spatial_alpha=GT_SPATIAL_RARITY_ALPHA, class_alpha=GT_CLASS_RARITY_ALPHA,
                     )
                     if labeled_ids is not None:
-                        score_writer.enqueue(labeled_ids, niter_total + combined_rarity)
+                        score_writer.enqueue(labeled_ids, niter_total + (combined_rarity if combined_rarity is not None else 0))  # pyrefly: ignore
 
                 # Save predictions for the sequential patches only, using first view's
                 # coords/logits (indices 0..nbase_ids-1 in the V*B stacked layout).
@@ -592,7 +592,7 @@ def train_worker(config: dict[str, Any]) -> None:
 # DLActor — named Ray actor holding training state
 # ---------------------------------------------------------------------------
 
-@ray.remote(max_concurrency=3)
+@ray.remote(max_concurrency=3)  # pyrefly: ignore
 class DLActor:
     """Named Ray actor that owns DL training state and launches the training loop.
 
@@ -666,7 +666,7 @@ def _launch_training(
             "app_config": app_config,
             "label_classes": label_classes,
         },
-        scaling_config=ScalingConfig(
+        scaling_config=ScalingConfig(  # pyrefly: ignore
             num_workers=num_workers,
             use_gpu=True,
         ),
@@ -719,7 +719,7 @@ def startup_dl_actor(project_id: int) -> DLActor:
         label_class_store = LabelClassStore(session)
         label_classes = label_class_store.list_by_project(project_id)
 
-    num_workers: int = app_config.get("dl_num_workers", 8)
+    num_workers: int = int(app_config.get("dl_num_workers", 8) or 8)  # pyrefly: ignore
 
     actor = DLActor.options(  # type: ignore[attr-defined]
         name=dl_actor_name(project_id),

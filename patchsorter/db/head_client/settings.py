@@ -214,7 +214,7 @@ class SettingsStore:
             .where(SettingOverride.project_id == scoped_project_id)
         )
         if override is not None:
-            override.value = setting_value
+            override.value = setting_value  # pyrefly: ignore
         else:
             self._session.add(SettingOverride(
                 setting_key=setting_key,
@@ -274,7 +274,7 @@ class SettingsStore:
                 (SettingOverride.project_id == project_id) | (SettingOverride.project_id.is_(None))
             )
         ).all()
-        return {(row.setting_key, row.project_id): row.value for row in rows}
+        return {(row.setting_key, row.project_id): row.value for row in rows}  # pyrefly: ignore
 
     @staticmethod
     def _require_entry(key: str) -> SettingDef:

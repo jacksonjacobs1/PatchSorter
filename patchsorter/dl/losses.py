@@ -254,7 +254,7 @@ def prediction_loss_pseudo(
         last two are ``[V*B]`` tensors usable for downstream logging.
     """
     device = logits.device
-    V = int(views_per_patch)
+    V = int(views_per_patch) if views_per_patch is not None else 1
     B = logits.shape[0] // V
     C = logits.shape[1]
 
@@ -408,7 +408,7 @@ def prediction_loss_pseudo_sce_adaptive(
         Tuple of ``(pseudo_loss, agreed_labels, high_conf_mask)``.
     """
     device = logits.device
-    V = int(views_per_patch)
+    V = int(views_per_patch) if views_per_patch is not None else 1
     B = logits.shape[0] // V
     C = logits.shape[1]
 
@@ -517,7 +517,7 @@ def neighborhood_loss(
         neighbor_log_probs = log_probs.gather(dim=1, index=neighbor_idx)
         loss += -(weights * neighbor_log_probs).sum(dim=1).mean()
 
-    return loss / V
+    return (loss / V) if V else loss  # pyrefly: ignore
 
 
 # ---------------------------------------------------------------------------
@@ -771,9 +771,9 @@ def initialize_projection_from_batch(
         W = solution[:-1].T
         b = solution[-1]
 
-        joint_head.proj_fc[0].weight.copy_(W)
-        joint_head.proj_fc[0].bias.copy_(b)
+        joint_head.proj_fc[0].weight.copy_(W)  # pyrefly: ignore
+        joint_head.proj_fc[0].bias.copy_(b)  # pyrefly: ignore
 
-        projected = joint_head.proj_fc(z)
+        projected = joint_head.proj_fc(z)  # pyrefly: ignore
 
     return z_raw, projected.detach()

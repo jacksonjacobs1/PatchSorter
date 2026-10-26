@@ -33,7 +33,7 @@ def get_dl_actor_state(project_id: int) -> DLActorState | None:
     try:
         term = ray.get(actor.get_termination_signal.remote())
         enabled = ray.get(actor.get_training_enabled.remote())
-        return DLActorState(termination_signal=term, training_enabled=enabled)
+        return DLActorState(termination_signal=term, training_enabled=enabled)  # pyrefly: ignore
     except ActorDiedError:
         return None
 
@@ -70,7 +70,7 @@ def start_processing(project_id: int) -> None:
         get_if_exists=False,
     ).remote(project_id, app_config, label_classes)
 
-    num_workers: int = app_config.get("dl_num_workers", 8)
+    num_workers: int = int(app_config.get("dl_num_workers", 8) or 8)  # pyrefly: ignore
     actor.start_dl_proc.remote(num_workers)
 
 

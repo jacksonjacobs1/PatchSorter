@@ -1,3 +1,4 @@
+# pyrefly: ignore-file
 """Live-DB tests for CandidatePool (in-memory scores) and ScoreWriter (DB scores).
 
 Both classes run against the real Citus test database. ``ScoreWriter`` flushes
