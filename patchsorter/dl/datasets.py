@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import cv2
 import numpy as np
 import torch
+from albumentations.pytorch import ToTensorV2
 from torch.utils.data import IterableDataset, get_worker_info
 
 from patchsorter.db import worker_client
@@ -74,11 +75,20 @@ def _build_views_batch(
 ) -> torch.Tensor:
     """Build NVIEWS augmented views for a batch of decoded images.
 
+    View 0 ("anchor") receives only ``geom_transform``, staying relatively
+    unmodified so it's a stable spatial reference for coordinate-consistency
+    losses and saved prediction coordinates; views 1..N-1 receive both
+    ``geom_transform`` and ``photo_transform``.
+
     Returns a CPU tensor of shape ``[V*B, C, H, W]`` (uint8), laid out
     views-major: ``[v0_b0 .. v0_bB-1, v1_b0 .. v1_bB-1, ...]``.
     """
-    views: List[torch.Tensor] = []
-    for _ in range(nviews):
+    anchor_tensors = [
+        ToTensorV2()(image=geom_transform(image=img)["image"])["image"]
+        for img in imgs_np
+    ]
+    views: List[torch.Tensor] = [torch.stack(anchor_tensors)]
+    for _ in range(nviews - 1):
         view_tensors = [
             photo_transform(image=geom_transform(image=img)["image"])["image"]
             for img in imgs_np
