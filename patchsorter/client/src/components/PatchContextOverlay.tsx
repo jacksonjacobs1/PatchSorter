@@ -21,7 +21,7 @@ export default function PatchContextOverlay({
     const [imageSrc, setImageSrc] = useState<string | null>(null)
     const [imageError, setImageError] = useState(false)
     const overlayRef = useRef<HTMLDivElement>(null)
-    const IMG_SIZE = 256
+    const IMG_SIZE = 512
 
     useEffect(() => {
         const controller = new AbortController()
