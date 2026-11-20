@@ -167,14 +167,14 @@ export default function SettingsPage() {
     const projectSettings = settings.filter(s => s.scope === 'project');
 
     return (
-        <div className="container-fluid mt-4">
+        <div className="container-fluid mt-4 vh-100 overflow-auto">
             <Row>
                 <Col md={6}>
-                    <Card>
+                    <Card className="h-100">
                         <Card.Header>
                             <h5 className="mb-0">Application Settings</h5>
                         </Card.Header>
-                        <Card.Body>
+                        <Card.Body className="overflow-auto" style={{ maxHeight: '75vh' }}>
                             {appSettings.length === 0 && <p className="text-muted">No application settings.</p>}
                             {appSettings.map(setting => (
                                 <SettingInput
@@ -187,11 +187,11 @@ export default function SettingsPage() {
                     </Card>
                 </Col>
                 <Col md={6}>
-                    <Card>
+                    <Card className="h-100">
                         <Card.Header>
                             <h5 className="mb-0">Project Settings</h5>
                         </Card.Header>
-                        <Card.Body>
+                        <Card.Body className="overflow-auto" style={{ maxHeight: '75vh' }}>
                             {projectSettings.length === 0 && <p className="text-muted">Enter a project from the <Link to="/">landing page</Link> and click "Project Settings" to view and modify project settings.</p>}
                             {projectSettings.map(setting => (
                                 <SettingInput
